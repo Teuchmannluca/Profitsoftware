@@ -118,7 +118,12 @@ export async function getSalesMetrics(from: Date, to: Date): Promise<SalesMetric
 
   for (const item of allItems) {
     const qty = (item.qty as number) ?? 0;
-    grossSales += parseFloat(String(item.item_price_gross ?? "0"));
+    const price = parseFloat(String(item.item_price_gross ?? "0"));
+
+    // Skip items with £0 price (Pending orders — Amazon hasn't confirmed the charge)
+    if (price === 0) continue;
+
+    grossSales += price;
     vatCollected += parseFloat(String(item.item_tax ?? "0"));
     promoDiscount += parseFloat(String(item.promo_discount ?? "0"));
     unitsSold += qty;
