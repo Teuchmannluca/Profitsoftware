@@ -46,13 +46,13 @@ describe("getRecentOrders", () => {
   it("throws on API error", async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: false,
-      status: 429,
-      text: () => Promise.resolve("Too Many Requests"),
+      status: 400,
+      text: () => Promise.resolve("Bad Request"),
       headers: new Headers({ "x-amzn-RequestId": "req-123" }),
     });
 
     const since = new Date("2026-05-16T00:00:00Z");
-    await expect(getRecentOrders(since)).rejects.toThrow("SP-API error 429");
+    await expect(getRecentOrders(since)).rejects.toThrow("SP-API error 400");
   });
 });
 
