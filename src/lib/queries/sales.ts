@@ -136,8 +136,32 @@ export async function getSalesMetrics(from: Date, to: Date): Promise<SalesMetric
     totalFees += perUnitFee * qty;
   }
 
-  const netRevenue = grossSales - vatCollected - promoDiscount;
-  const estimatedProfit = netRevenue - totalFees - totalCogs;
+  // Step 5: Read VAT registration status
+  const { data: settings } = await supabase
+    .from("business_settings")
+    .select("vat_status, vat_rate")
+    .eq("id", 1)
+    .single();
+
+  const vatStatus = settings?.vat_status ?? "standard";
+
+  let netRevenue: number;
+  let adjustedFees: number;
+
+  if (vatStatus === "not_registered") {
+    // Not VAT registered: no VAT to subtract from revenue,
+    // but can't reclaim VAT on fees (fees include irrecoverable VAT)
+    netRevenue = grossSales - promoDiscount;
+    const vatOnFees = totalFees * 0.2;
+    adjustedFees = totalFees + vatOnFees;
+  } else {
+    // Standard VAT registered: subtract VAT from revenue,
+    // fees are ex-VAT (can reclaim VAT on fees)
+    netRevenue = grossSales - vatCollected - promoDiscount;
+    adjustedFees = totalFees;
+  }
+
+  const estimatedProfit = netRevenue - adjustedFees - totalCogs;
   const margin = netRevenue > 0 ? (estimatedProfit / netRevenue) * 100 : 0;
 
   return {
@@ -145,7 +169,7 @@ export async function getSalesMetrics(from: Date, to: Date): Promise<SalesMetric
     vatCollected,
     promoDiscount,
     netRevenue,
-    totalFees,
+    totalFees: adjustedFees,
     totalCogs,
     estimatedProfit,
     unitsSold,
