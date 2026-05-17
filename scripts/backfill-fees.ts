@@ -122,20 +122,32 @@ async function main() {
   console.log(`\n=== Backfill Fees ===`);
   console.log(`Marketplace: ${MARKETPLACE_ID}\n`);
 
-  // Step 1: Query order_items where estimated_fees IS NULL
+  // Step 1: Query ALL order_items where estimated_fees IS NULL (paginate past 1000 limit)
   console.log("Step 1: Fetching order items without fee estimates...");
-  const { data: items, error: itemsErr } = await supabase
-    .from("order_items")
-    .select(
-      "order_item_id, amazon_order_id, asin, qty, item_price_gross, item_tax, promo_discount, orders!inner(purchase_date)"
-    )
-    .is("estimated_fees", null);
+  const items: Array<Record<string, unknown>> = [];
+  let page = 0;
+  while (true) {
+    const { data: batch, error: batchErr } = await supabase
+      .from("order_items")
+      .select(
+        "order_item_id, amazon_order_id, asin, qty, item_price_gross, item_tax, promo_discount"
+      )
+      .is("estimated_fees", null)
+      .not("asin", "is", null)
+      .gt("item_price_gross", 0)
+      .range(page * 1000, (page + 1) * 1000 - 1);
 
-  if (itemsErr) {
-    throw new Error(`Failed to fetch order items: ${itemsErr.message}`);
+    if (batchErr) {
+      throw new Error(`Failed to fetch order items: ${batchErr.message}`);
+    }
+    if (!batch || batch.length === 0) break;
+    items.push(...batch);
+    console.log(`  Page ${page + 1}: ${batch.length} items (total: ${items.length})`);
+    if (batch.length < 1000) break;
+    page++;
   }
 
-  if (!items || items.length === 0) {
+  if (items.length === 0) {
     console.log("  No order items need fee estimates. Done!");
     return;
   }
