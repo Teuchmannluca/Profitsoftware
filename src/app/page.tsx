@@ -326,88 +326,96 @@ export default async function DashboardPage({
             if (!latestItem) return null;
             const salePrice = latestItem.item_price_gross;
             const tax = latestItem.item_tax;
-            const profit = latestItem.estimated_profit ?? (salePrice - tax);
+            const cogs = cogsMap.get(latestItem.asin ?? "") ?? 0;
+            const feeItem = (orderItems ?? []).find(i => i.amazon_order_id === latestOrder.amazon_order_id);
+            const feeData = feeItem ? (feeItem as Record<string, unknown>).estimated_fees as Record<string, unknown> | null : null;
+            const totalFee = feeData ? parseFloat(String(feeData.totalFees ?? 0)) * latestItem.qty : 0;
+            const profit = salePrice - tax - totalFee - (cogs * latestItem.qty);
             const margin = salePrice > 0 ? (profit / salePrice) * 100 : 0;
-            const cogsEntry = cogsMap.get(latestItem.asin ?? "");
-            const fees = (orderItems ?? []).find(i => i.amazon_order_id === latestOrder.amazon_order_id);
-            const feeData = fees?.estimated_profit !== undefined ?
-              ((fees as Record<string, unknown>).estimated_fees as Record<string, unknown>) : null;
-            const totalFeeAmt = feeData ? parseFloat(String(feeData.totalFees ?? 0)) : 0;
+            const timeStr = new Date(latestOrder.purchase_date).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
 
             return (
-              <Card className="overflow-hidden shadow-card ring-1 ring-border/50">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-sm font-semibold">
-                      Latest Sale — {new Date(latestOrder.purchase_date).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })} {new Date(latestOrder.purchase_date).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
-                    </CardTitle>
-                    <a href="/orders" className="text-xs text-primary font-medium hover:underline">View Recent Orders →</a>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex gap-6">
-                    {latestItem.image_url ? (
-                      <Image
-                        src={latestItem.image_url}
-                        alt={latestItem.title ?? latestItem.sku}
-                        width={120}
-                        height={120}
-                        className="rounded-xl object-cover ring-1 ring-border/50 shrink-0"
-                      />
-                    ) : (
-                      <div className="h-[120px] w-[120px] rounded-xl bg-muted shrink-0" />
-                    )}
-                    <div className="flex-1 min-w-0 space-y-3">
-                      <div>
-                        <p className="text-[11px] text-muted-foreground font-mono">{latestItem.sku} | {latestItem.asin}</p>
-                        <p className="text-sm font-semibold truncate">{latestItem.title ?? "Unknown Product"}</p>
-                      </div>
-                      <div className="flex gap-6 text-xs">
-                        <div>
-                          <p className="text-muted-foreground">QTY Sold</p>
-                          <p className="font-semibold font-mono">{latestItem.qty}</p>
-                        </div>
-                        <div>
-                          <p className="text-muted-foreground">Order Number</p>
-                          <p className="font-semibold font-mono text-[11px]">{latestOrder.amazon_order_id}</p>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-3 gap-3">
-                        <div className="rounded-xl bg-muted/50 p-2.5 ring-1 ring-border/30">
-                          <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">COG &amp; Prep</p>
-                          <p className="font-mono text-xs font-semibold mt-0.5">£{(cogsEntry ?? 0).toFixed(2)}</p>
-                        </div>
-                        <div className="rounded-xl bg-muted/50 p-2.5 ring-1 ring-border/30">
-                          <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Fees</p>
-                          <p className="font-mono text-xs font-semibold mt-0.5">£{totalFeeAmt.toFixed(2)}</p>
-                        </div>
-                        <div className="rounded-xl bg-muted/50 p-2.5 ring-1 ring-border/30">
-                          <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">VAT Paid</p>
-                          <p className="font-mono text-xs font-semibold mt-0.5">£{tax.toFixed(2)}</p>
+              <div className="grid gap-6 lg:grid-cols-5">
+                <div className="lg:col-span-3">
+                  <Card className="overflow-hidden shadow-card ring-1 ring-border/50 h-full">
+                    <CardContent className="p-6">
+                      <div className="flex items-start gap-5">
+                        {latestItem.image_url ? (
+                          <Image
+                            src={latestItem.image_url}
+                            alt={latestItem.title ?? latestItem.sku}
+                            width={100}
+                            height={100}
+                            className="rounded-2xl object-cover ring-1 ring-border/50 shrink-0"
+                          />
+                        ) : (
+                          <div className="h-[100px] w-[100px] rounded-2xl bg-muted shrink-0" />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full ring-1 ring-emerald-600/10">
+                              New Sale · {timeStr}
+                            </span>
+                            <a href="/orders" className="text-[11px] text-primary font-medium hover:underline">All orders →</a>
+                          </div>
+                          <p className="text-[13px] font-bold truncate mt-2">{latestItem.title ?? "Unknown Product"}</p>
+                          <p className="text-[10px] text-muted-foreground font-mono mt-0.5">{latestItem.asin} · {latestItem.sku}</p>
+                          <div className="flex items-center gap-4 mt-3">
+                            <div className="text-center">
+                              <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Qty</p>
+                              <p className="text-lg font-bold font-mono">{latestItem.qty}</p>
+                            </div>
+                            <div className="h-8 w-px bg-border/60" />
+                            <div className="text-center">
+                              <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Price</p>
+                              <p className="text-lg font-bold font-mono">£{salePrice.toFixed(2)}</p>
+                            </div>
+                            <div className="h-8 w-px bg-border/60" />
+                            <div className="text-center">
+                              <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Profit</p>
+                              <p className={`text-lg font-bold font-mono ${profit >= 0 ? "text-emerald-600" : "text-rose-600"}`}>£{profit.toFixed(2)}</p>
+                            </div>
+                            <div className="h-8 w-px bg-border/60" />
+                            <div className="text-center">
+                              <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Margin</p>
+                              <p className={`text-lg font-bold font-mono ${margin >= 0 ? "text-emerald-600" : "text-rose-600"}`}>{margin.toFixed(1)}%</p>
+                            </div>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-4 gap-3 mt-4 pt-4 border-t border-border/50">
-                    <div className="rounded-xl bg-card p-3 ring-1 ring-border/50">
-                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Sale Price</p>
-                      <p className="font-mono text-sm font-bold mt-1">£{salePrice.toFixed(2)}</p>
-                    </div>
-                    <div className="rounded-xl bg-card p-3 ring-1 ring-border/50">
-                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Total Profit</p>
-                      <p className={`font-mono text-sm font-bold mt-1 ${profit >= 0 ? "text-emerald-600" : "text-rose-600"}`}>£{profit.toFixed(2)}</p>
-                    </div>
-                    <div className="rounded-xl bg-card p-3 ring-1 ring-border/50">
-                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">ROI</p>
-                      <p className="font-mono text-sm font-bold mt-1">{cogsEntry ? ((profit / cogsEntry) * 100).toFixed(1) : "0"}%</p>
-                    </div>
-                    <div className="rounded-xl bg-card p-3 ring-1 ring-border/50">
-                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Margin</p>
-                      <p className={`font-mono text-sm font-bold mt-1 ${margin >= 0 ? "text-emerald-600" : "text-rose-600"}`}>{margin.toFixed(2)}%</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+                    </CardContent>
+                  </Card>
+                </div>
+                <div className="lg:col-span-2">
+                  <Card className="overflow-hidden shadow-card ring-1 ring-border/50 h-full">
+                    <CardContent className="p-6">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-4">Cost Breakdown</p>
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs text-muted-foreground">COGS &amp; Prep</span>
+                          <span className="font-mono text-xs font-semibold">£{(cogs * latestItem.qty).toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs text-muted-foreground">Amazon Fees</span>
+                          <span className="font-mono text-xs font-semibold">£{totalFee.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs text-muted-foreground">VAT</span>
+                          <span className="font-mono text-xs font-semibold">£{tax.toFixed(2)}</span>
+                        </div>
+                        <div className="border-t border-border/50 pt-3 flex justify-between items-center">
+                          <span className="text-xs font-semibold">Net Profit</span>
+                          <span className={`font-mono text-sm font-bold ${profit >= 0 ? "text-emerald-600" : "text-rose-600"}`}>£{profit.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs font-semibold">ROI</span>
+                          <span className="font-mono text-xs font-bold">{cogs > 0 ? ((profit / (cogs * latestItem.qty)) * 100).toFixed(1) : "—"}%</span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
             );
           })()}
         </div>
