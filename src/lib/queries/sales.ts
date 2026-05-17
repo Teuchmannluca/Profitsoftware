@@ -61,16 +61,36 @@ export function getDateRange(period: string): { from: Date; to: Date } {
 export async function getSalesMetrics(from: Date, to: Date): Promise<SalesMetrics> {
   const supabase = createServiceClient();
 
-  // 1. Get order items joined with orders filtered by date range
-  const { data: items } = await supabase
-    .from("order_items")
-    .select(
-      "asin, qty, item_price_gross, item_tax, promo_discount, estimated_fees, actual_fees, orders!inner(amazon_order_id, purchase_date)"
-    )
-    .gte("orders.purchase_date", from.toISOString())
-    .lte("orders.purchase_date", to.toISOString());
+  // Step 1: Get order IDs in the date range
+  const { data: orderRows } = await supabase
+    .from("orders")
+    .select("amazon_order_id")
+    .gte("purchase_date", from.toISOString())
+    .lte("purchase_date", to.toISOString());
 
-  // 2. Get active COGS periods
+  const orderIds = (orderRows ?? []).map((o) => o.amazon_order_id);
+  const orderCount = orderIds.length;
+
+  if (orderIds.length === 0) {
+    return {
+      grossSales: 0, vatCollected: 0, promoDiscount: 0, netRevenue: 0,
+      totalFees: 0, totalCogs: 0, estimatedProfit: 0, unitsSold: 0,
+      orderCount: 0, margin: 0,
+    };
+  }
+
+  // Step 2: Get all items for those orders (query in chunks to avoid URL length limits)
+  const allItems: Array<Record<string, unknown>> = [];
+  for (let i = 0; i < orderIds.length; i += 200) {
+    const chunk = orderIds.slice(i, i + 200);
+    const { data: items } = await supabase
+      .from("order_items")
+      .select("asin, qty, item_price_gross, item_tax, shipping_price, promo_discount, estimated_fees, actual_fees")
+      .in("amazon_order_id", chunk);
+    allItems.push(...(items ?? []));
+  }
+
+  // Step 3: Get active COGS
   const { data: cogs } = await supabase
     .from("cogs_periods")
     .select("asin, total_cogs")
@@ -80,14 +100,7 @@ export async function getSalesMetrics(from: Date, to: Date): Promise<SalesMetric
     cogs?.map((c) => [c.asin, parseFloat(String(c.total_cogs ?? "0"))]) ?? []
   );
 
-  // 3. Get order count for the period
-  const { count } = await supabase
-    .from("orders")
-    .select("*", { count: "exact", head: true })
-    .gte("purchase_date", from.toISOString())
-    .lte("purchase_date", to.toISOString());
-
-  // 4. Aggregate in JS
+  // Step 4: Aggregate
   let grossSales = 0;
   let vatCollected = 0;
   let promoDiscount = 0;
@@ -95,19 +108,19 @@ export async function getSalesMetrics(from: Date, to: Date): Promise<SalesMetric
   let totalCogs = 0;
   let totalFees = 0;
 
-  for (const item of items ?? []) {
+  for (const item of allItems) {
+    const qty = (item.qty as number) ?? 0;
     grossSales += parseFloat(String(item.item_price_gross ?? "0"));
     vatCollected += parseFloat(String(item.item_tax ?? "0"));
     promoDiscount += parseFloat(String(item.promo_discount ?? "0"));
-    unitsSold += item.qty ?? 0;
+    unitsSold += qty;
 
-    const unitCogs = cogsMap.get(item.asin) ?? 0;
-    totalCogs += unitCogs * (item.qty ?? 0);
+    const unitCogs = cogsMap.get(item.asin as string) ?? 0;
+    totalCogs += unitCogs * qty;
 
-    // Fees: prefer actual_fees over estimated_fees, per-unit * qty
-    const fees = (item.actual_fees as Record<string, unknown>) ?? (item.estimated_fees as Record<string, unknown>);
+    const fees = (item.actual_fees ?? item.estimated_fees) as Record<string, unknown> | null;
     const perUnitFee = parseFloat(String(fees?.totalFees ?? "0"));
-    totalFees += perUnitFee * (item.qty ?? 0);
+    totalFees += perUnitFee * qty;
   }
 
   const netRevenue = grossSales - vatCollected - promoDiscount;
@@ -123,7 +136,7 @@ export async function getSalesMetrics(from: Date, to: Date): Promise<SalesMetric
     totalCogs,
     estimatedProfit,
     unitsSold,
-    orderCount: count ?? 0,
+    orderCount,
     margin,
   };
 }
