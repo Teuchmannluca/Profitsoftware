@@ -95,8 +95,8 @@ export async function syncOrders(sinceOverride?: string): Promise<{
     }
     console.log(`[orders-sync] Upserted ${ordersWritten} orders`);
 
-    // Fetch items for each order — rate limit: 0.5 req/sec (burst 30)
-    // Throttle to ~2 seconds between calls to stay safe
+    // Fetch items for each order — burst limit: 30, then 0.5 req/sec
+    // Use burst for first 25 orders (no throttle), then throttle
     for (let i = 0; i < Orders.length; i++) {
       const order = Orders[i];
       try {
@@ -117,16 +117,18 @@ export async function syncOrders(sinceOverride?: string): Promise<{
       } catch (itemErr: unknown) {
         const msg = itemErr instanceof Error ? itemErr.message : String(itemErr);
         if (msg.includes("429") || msg.includes("QuotaExceeded")) {
-          console.log(`[orders-sync] Rate limited at order ${i + 1}/${Orders.length}, waiting 60s...`);
-          await new Promise((r) => setTimeout(r, 60000));
-          i--; // retry this order
+          console.log(`[orders-sync] Rate limited at order ${i + 1}/${Orders.length}, waiting 30s...`);
+          await new Promise((r) => setTimeout(r, 30000));
+          i--;
           continue;
         }
         console.error(`[orders-sync] Failed to get items for ${order.AmazonOrderId}:`, msg);
       }
 
-      // Throttle: wait 2s between getOrderItems calls
-      await new Promise((r) => setTimeout(r, 2000));
+      // Only throttle after burst allowance used up
+      if (i >= 25) {
+        await new Promise((r) => setTimeout(r, 2000));
+      }
 
       if ((i + 1) % 25 === 0) {
         console.log(`[orders-sync] Progress: ${i + 1}/${Orders.length} orders processed, ${itemsWritten} items`);
