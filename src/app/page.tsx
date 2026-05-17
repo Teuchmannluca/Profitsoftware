@@ -253,9 +253,10 @@ export default async function DashboardPage({
 
           {/* Latest Sale */}
           {ordersWithItems.length > 0 && (() => {
-            const latestOrder = ordersWithItems[0];
+            const orderWithItem = ordersWithItems.find(o => o.items.length > 0 && o.items[0].item_price_gross > 0);
+            if (!orderWithItem) return null;
+            const latestOrder = orderWithItem;
             const latestItem = latestOrder.items[0];
-            if (!latestItem) return null;
             const salePrice = latestItem.item_price_gross;
             const tax = latestItem.item_tax;
             const cogs = cogsMap.get(latestItem.asin ?? "") ?? 0;
