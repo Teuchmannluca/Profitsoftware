@@ -52,7 +52,7 @@ export default async function OrdersPage({
   const { data: rawOrders } = await supabase
     .from("orders")
     .select(
-      "amazon_order_id, purchase_date, order_status, fulfillment_channel, ship_country, ship_postcode, last_updated"
+      "amazon_order_id, purchase_date, order_status, fulfillment_channel, ship_country, ship_postcode, last_updated, raw"
     )
     .gte("purchase_date", from.toISOString())
     .lte("purchase_date", to.toISOString())
@@ -92,6 +92,8 @@ export default async function OrdersPage({
   const ordersWithItems =
     rawOrders?.map((order) => ({
       ...order,
+      is_business_order: (order.raw as Record<string, unknown>)?.IsBusinessOrder === true,
+      is_prime: (order.raw as Record<string, unknown>)?.IsPrime === true,
       items:
         itemsByOrder.get(order.amazon_order_id)?.map((item) => ({
           sku: item.sku,

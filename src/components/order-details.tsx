@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/status-badge";
+import { Input } from "@/components/ui/input";
 import {
   Package,
   TrendingUp,
@@ -12,7 +13,11 @@ import {
   PiggyBank,
   Scale,
   Tag,
+  Search,
+  Briefcase,
+  Crown,
 } from "lucide-react";
+import { useState, useMemo } from "react";
 
 interface OrderItem {
   sku: string;
@@ -36,6 +41,8 @@ interface OrderWithItems {
   fulfillment_channel: string;
   ship_country: string | null;
   ship_postcode: string | null;
+  is_business_order?: boolean;
+  is_prime?: boolean;
   items: OrderItem[];
 }
 
@@ -68,14 +75,31 @@ function countryFlag(country: string | null): string {
 }
 
 export function OrderDetails({ orders }: { orders: OrderWithItems[] }) {
-  const totalItems = orders.reduce((sum, o) => sum + o.items.length, 0);
+  const [search, setSearch] = useState("");
+
+  const filtered = useMemo(() => {
+    if (!search) return orders;
+    const q = search.toLowerCase();
+    return orders.filter(
+      (o) =>
+        o.amazon_order_id.toLowerCase().includes(q) ||
+        o.items.some(
+          (i) =>
+            i.title?.toLowerCase().includes(q) ||
+            i.asin?.toLowerCase().includes(q) ||
+            i.sku?.toLowerCase().includes(q)
+        )
+    );
+  }, [orders, search]);
+
+  const totalItems = filtered.reduce((sum, o) => sum + o.items.length, 0);
 
   // Grand totals
-  const grandGross = orders.reduce(
+  const grandGross = filtered.reduce(
     (sum, o) => sum + o.items.reduce((is, i) => is + i.item_price_gross, 0),
     0
   );
-  const grandNet = orders.reduce(
+  const grandNet = filtered.reduce(
     (sum, o) =>
       sum +
       o.items.reduce(
@@ -84,7 +108,7 @@ export function OrderDetails({ orders }: { orders: OrderWithItems[] }) {
       ),
     0
   );
-  const grandProfit = orders.reduce(
+  const grandProfit = filtered.reduce(
     (sum, o) => sum + o.items.reduce((is, i) => is + (i.estimated_profit ?? 0), 0),
     0
   );
@@ -101,12 +125,23 @@ export function OrderDetails({ orders }: { orders: OrderWithItems[] }) {
           </CardTitle>
           <div className="flex items-center gap-2">
             <span className="text-xs font-medium text-muted-foreground bg-muted px-2.5 py-1 rounded-full">
-              {orders.length} orders
+              {filtered.length} orders
             </span>
             <span className="text-xs font-medium text-muted-foreground bg-muted px-2.5 py-1 rounded-full">
               {totalItems} items
             </span>
           </div>
+        </div>
+
+        {/* Search bar */}
+        <div className="relative mt-3">
+          <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Search by order ID, product name, ASIN, or SKU..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9 text-xs h-9 rounded-xl border-border/80"
+          />
         </div>
 
         {/* Grand totals bar */}
@@ -153,7 +188,7 @@ export function OrderDetails({ orders }: { orders: OrderWithItems[] }) {
           </div>
         ) : (
           <div className="divide-y divide-border/40">
-            {orders.map((order) => {
+            {filtered.map((order) => {
               const orderGross = order.items.reduce(
                 (sum, i) => sum + i.item_price_gross,
                 0
@@ -183,6 +218,18 @@ export function OrderDetails({ orders }: { orders: OrderWithItems[] }) {
                       <StatusBadge
                         status={order.fulfillment_channel === "AFN" ? "FBA" : "FBM"}
                       />
+                      {order.is_business_order && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full ring-1 ring-blue-600/15">
+                          <Briefcase className="h-2.5 w-2.5" />
+                          B2B
+                        </span>
+                      )}
+                      {order.is_prime && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-sky-700 bg-sky-50 px-2 py-0.5 rounded-full ring-1 ring-sky-600/15">
+                          <Crown className="h-2.5 w-2.5" />
+                          Prime
+                        </span>
+                      )}
                       <span className="text-[11px] text-muted-foreground flex items-center gap-1">
                         <Truck className="h-3 w-3" />
                         {countryFlag(order.ship_country)} {order.ship_country ?? "—"}
