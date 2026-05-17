@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { RefreshCw } from "lucide-react";
 import { syncOrders } from "@/actions/sync-orders-action";
+import { syncFinances } from "@/actions/sync-finances-action";
 
 export function SyncButton() {
   const [loading, setLoading] = useState(false);
@@ -13,6 +14,7 @@ export function SyncButton() {
   async function handleSync() {
     setLoading(true);
     await syncOrders();
+    await syncFinances();
     setLoading(false);
     router.refresh();
   }
