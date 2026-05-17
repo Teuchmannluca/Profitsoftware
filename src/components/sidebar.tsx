@@ -23,11 +23,11 @@ const navItems = [
   { label: "Dashboard", href: "/", icon: LayoutDashboard },
   { label: "Orders", href: "/orders", icon: ShoppingCart },
   { label: "Costs", href: "/costs", icon: Receipt },
-  { label: "Products", href: "/product", icon: Package },
+  { label: "Analysis", href: "/product", icon: Package },
   { label: "P&L", href: "/pnl", icon: PoundSterling, soon: true },
   { label: "PPC / Ads", href: "/ppc", icon: Megaphone, soon: true },
   { label: "Inventory", href: "/inventory", icon: Warehouse },
-  { label: "Reimbursements", href: "/reimbursements", icon: RotateCcw, soon: true },
+  { label: "Reimbursements", href: "/reimbursements", icon: RotateCcw },
   { label: "Reviews", href: "/reviews", icon: Star, soon: true },
 ];
 
