@@ -65,7 +65,7 @@ export default async function CostsPage() {
       asin: product.asin,
       title: product.title,
       image_url: product.image_url,
-      vat_rate: product.vat_rate ?? 20,
+      vat_rate: product.vat_rate ?? 0.20,
       unit_cost: cost?.unit_cost ?? null,
       prep_cost: cost?.prep_cost ?? null,
       total_cogs: cost?.total_cogs ?? null,
