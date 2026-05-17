@@ -3,7 +3,6 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/sidebar";
 import { StatBox } from "@/components/stat-card";
-import { RecentOrders } from "@/components/recent-orders";
 import { SyncLogCard } from "@/components/sync-log-card";
 import { SyncButton } from "@/components/sync-button";
 import { CircleGauge } from "@/components/circle-gauge";
@@ -92,6 +91,15 @@ export default async function DashboardPage({
       : { data: [] };
 
   const productMap = new Map(products?.map((p) => [p.sku, p]) ?? []);
+
+  // Fetch active COGS
+  const { data: cogsData } = await supabase
+    .from("cogs_periods")
+    .select("asin, total_cogs")
+    .is("valid_to", null);
+  const cogsMap = new Map(
+    cogsData?.map((c) => [c.asin, parseFloat(String(c.total_cogs ?? "0"))]) ?? []
+  );
 
   // Group items by order
   const itemsByOrder = new Map<string, typeof orderItems>();
@@ -311,8 +319,97 @@ export default async function DashboardPage({
             </div>
           </div>
 
-          {/* Recent Orders */}
-          <RecentOrders orders={ordersWithItems} />
+          {/* Latest Sale */}
+          {ordersWithItems.length > 0 && (() => {
+            const latestOrder = ordersWithItems[0];
+            const latestItem = latestOrder.items[0];
+            if (!latestItem) return null;
+            const salePrice = latestItem.item_price_gross;
+            const tax = latestItem.item_tax;
+            const profit = latestItem.estimated_profit ?? (salePrice - tax);
+            const margin = salePrice > 0 ? (profit / salePrice) * 100 : 0;
+            const cogsEntry = cogsMap.get(latestItem.asin ?? "");
+            const fees = (orderItems ?? []).find(i => i.amazon_order_id === latestOrder.amazon_order_id);
+            const feeData = fees?.estimated_profit !== undefined ?
+              ((fees as Record<string, unknown>).estimated_fees as Record<string, unknown>) : null;
+            const totalFeeAmt = feeData ? parseFloat(String(feeData.totalFees ?? 0)) : 0;
+
+            return (
+              <Card className="overflow-hidden shadow-card ring-1 ring-border/50">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm font-semibold">
+                      Latest Sale — {new Date(latestOrder.purchase_date).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })} {new Date(latestOrder.purchase_date).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
+                    </CardTitle>
+                    <a href="/orders" className="text-xs text-primary font-medium hover:underline">View Recent Orders →</a>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex gap-6">
+                    {latestItem.image_url ? (
+                      <Image
+                        src={latestItem.image_url}
+                        alt={latestItem.title ?? latestItem.sku}
+                        width={120}
+                        height={120}
+                        className="rounded-xl object-cover ring-1 ring-border/50 shrink-0"
+                      />
+                    ) : (
+                      <div className="h-[120px] w-[120px] rounded-xl bg-muted shrink-0" />
+                    )}
+                    <div className="flex-1 min-w-0 space-y-3">
+                      <div>
+                        <p className="text-[11px] text-muted-foreground font-mono">{latestItem.sku} | {latestItem.asin}</p>
+                        <p className="text-sm font-semibold truncate">{latestItem.title ?? "Unknown Product"}</p>
+                      </div>
+                      <div className="flex gap-6 text-xs">
+                        <div>
+                          <p className="text-muted-foreground">QTY Sold</p>
+                          <p className="font-semibold font-mono">{latestItem.qty}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Order Number</p>
+                          <p className="font-semibold font-mono text-[11px]">{latestOrder.amazon_order_id}</p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-3">
+                        <div className="rounded-xl bg-muted/50 p-2.5 ring-1 ring-border/30">
+                          <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">COG &amp; Prep</p>
+                          <p className="font-mono text-xs font-semibold mt-0.5">£{(cogsEntry ?? 0).toFixed(2)}</p>
+                        </div>
+                        <div className="rounded-xl bg-muted/50 p-2.5 ring-1 ring-border/30">
+                          <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Fees</p>
+                          <p className="font-mono text-xs font-semibold mt-0.5">£{totalFeeAmt.toFixed(2)}</p>
+                        </div>
+                        <div className="rounded-xl bg-muted/50 p-2.5 ring-1 ring-border/30">
+                          <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">VAT Paid</p>
+                          <p className="font-mono text-xs font-semibold mt-0.5">£{tax.toFixed(2)}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-4 gap-3 mt-4 pt-4 border-t border-border/50">
+                    <div className="rounded-xl bg-card p-3 ring-1 ring-border/50">
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Sale Price</p>
+                      <p className="font-mono text-sm font-bold mt-1">£{salePrice.toFixed(2)}</p>
+                    </div>
+                    <div className="rounded-xl bg-card p-3 ring-1 ring-border/50">
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Total Profit</p>
+                      <p className={`font-mono text-sm font-bold mt-1 ${profit >= 0 ? "text-emerald-600" : "text-rose-600"}`}>£{profit.toFixed(2)}</p>
+                    </div>
+                    <div className="rounded-xl bg-card p-3 ring-1 ring-border/50">
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">ROI</p>
+                      <p className="font-mono text-sm font-bold mt-1">{cogsEntry ? ((profit / cogsEntry) * 100).toFixed(1) : "0"}%</p>
+                    </div>
+                    <div className="rounded-xl bg-card p-3 ring-1 ring-border/50">
+                      <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Margin</p>
+                      <p className={`font-mono text-sm font-bold mt-1 ${margin >= 0 ? "text-emerald-600" : "text-rose-600"}`}>{margin.toFixed(2)}%</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })()}
         </div>
       </main>
     </div>
