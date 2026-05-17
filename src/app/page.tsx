@@ -251,74 +251,6 @@ export default async function DashboardPage({
             />
           </div>
 
-          {/* Top Sellers + Sync Log */}
-          <div className="grid gap-6 lg:grid-cols-3">
-            <div className="lg:col-span-2">
-              <Card className="overflow-hidden shadow-card ring-1 ring-border/50">
-                <CardHeader className="pb-4">
-                  <CardTitle className="flex items-center gap-2.5 text-sm font-semibold">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50">
-                      <TrendingUp className="h-4 w-4 text-amber-600" />
-                    </div>
-                    Your Top Selling Items
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-0">
-                  {topSellers.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-8">No sales data yet</p>
-                  ) : (
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b border-border/50 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                          <th className="text-left py-2.5 pl-6">Product</th>
-                          <th className="text-right py-2.5 px-3">Units</th>
-                          <th className="text-right py-2.5 px-3">Sales</th>
-                          <th className="text-right py-2.5 px-3">Profit</th>
-                          <th className="text-right py-2.5 pr-6">ROI %</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {topSellers.map((item) => {
-                          const roi = item.sales > 0 ? (item.profit / item.sales) * 100 : 0;
-                          return (
-                            <tr key={item.asin} className="border-b border-border/30 last:border-0">
-                              <td className="py-3 pl-6">
-                                <div className="flex items-center gap-3">
-                                  {item.image_url ? (
-                                    <Image
-                                      src={item.image_url}
-                                      alt={item.title ?? item.sku}
-                                      width={40}
-                                      height={40}
-                                      className="rounded-lg object-cover ring-1 ring-border/50"
-                                    />
-                                  ) : (
-                                    <div className="h-10 w-10 rounded-lg bg-muted" />
-                                  )}
-                                  <div className="min-w-0">
-                                    <p className="text-xs font-medium truncate max-w-[200px]">{item.title ?? item.sku}</p>
-                                    <p className="text-[10px] text-muted-foreground font-mono">{item.asin}</p>
-                                  </div>
-                                </div>
-                              </td>
-                              <td className="text-right px-3 font-mono text-xs font-semibold">{item.units}</td>
-                              <td className="text-right px-3 font-mono text-xs">£{item.sales.toFixed(2)}</td>
-                              <td className="text-right px-3 font-mono text-xs text-emerald-600 font-semibold">£{item.profit.toFixed(2)}</td>
-                              <td className="text-right pr-6 font-mono text-xs font-semibold">{roi.toFixed(1)}%</td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-            <div className="space-y-6">
-              <SyncLogCard logs={syncLogs ?? []} />
-            </div>
-          </div>
-
           {/* Latest Sale */}
           {ordersWithItems.length > 0 && (() => {
             const latestOrder = ordersWithItems[0];
@@ -418,6 +350,74 @@ export default async function DashboardPage({
               </div>
             );
           })()}
+
+          {/* Top Sellers + Sync Log */}
+          <div className="grid gap-6 lg:grid-cols-3">
+            <div className="lg:col-span-2">
+              <Card className="overflow-hidden shadow-card ring-1 ring-border/50">
+                <CardHeader className="pb-4">
+                  <CardTitle className="flex items-center gap-2.5 text-sm font-semibold">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50">
+                      <TrendingUp className="h-4 w-4 text-amber-600" />
+                    </div>
+                    Your Top Selling Items
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  {topSellers.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-8">No sales data yet</p>
+                  ) : (
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-border/50 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                          <th className="text-left py-2.5 pl-6">Product</th>
+                          <th className="text-right py-2.5 px-3">Units</th>
+                          <th className="text-right py-2.5 px-3">Sales</th>
+                          <th className="text-right py-2.5 px-3">Profit</th>
+                          <th className="text-right py-2.5 pr-6">ROI %</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {topSellers.map((item) => {
+                          const roi = item.sales > 0 ? (item.profit / item.sales) * 100 : 0;
+                          return (
+                            <tr key={item.asin} className="border-b border-border/30 last:border-0">
+                              <td className="py-3 pl-6">
+                                <div className="flex items-center gap-3">
+                                  {item.image_url ? (
+                                    <Image
+                                      src={item.image_url}
+                                      alt={item.title ?? item.sku}
+                                      width={40}
+                                      height={40}
+                                      className="rounded-lg object-cover ring-1 ring-border/50"
+                                    />
+                                  ) : (
+                                    <div className="h-10 w-10 rounded-lg bg-muted" />
+                                  )}
+                                  <div className="min-w-0">
+                                    <p className="text-xs font-medium truncate max-w-[200px]">{item.title ?? item.sku}</p>
+                                    <p className="text-[10px] text-muted-foreground font-mono">{item.asin}</p>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="text-right px-3 font-mono text-xs font-semibold">{item.units}</td>
+                              <td className="text-right px-3 font-mono text-xs">£{item.sales.toFixed(2)}</td>
+                              <td className="text-right px-3 font-mono text-xs text-emerald-600 font-semibold">£{item.profit.toFixed(2)}</td>
+                              <td className="text-right pr-6 font-mono text-xs font-semibold">{roi.toFixed(1)}%</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+            <div>
+              <SyncLogCard logs={syncLogs ?? []} />
+            </div>
+          </div>
         </div>
       </main>
     </div>
