@@ -1,5 +1,6 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import { getRecentOrders, getOrderItems } from "@/lib/sp-api/orders";
+import { getFeesEstimateForASIN } from "@/lib/sp-api/fees";
 import type { SpApiOrder, SpApiOrderItem } from "@/lib/sp-api/types";
 
 export function mapSpApiOrderToRow(order: SpApiOrder) {
@@ -131,7 +132,65 @@ export async function syncOrders(sinceOverride?: string): Promise<{
       }
     }
 
-    console.log(`[orders-sync] Done: ${ordersWritten} orders, ${itemsWritten} items`);
+    // Estimate fees for new items that don't have them yet
+    console.log(`[orders-sync] Estimating fees for new items...`);
+    const { data: unfeedItems } = await supabase
+      .from("order_items")
+      .select("order_item_id, asin, qty, item_price_gross, item_tax, promo_discount")
+      .is("estimated_fees", null)
+      .not("asin", "is", null)
+      .gt("item_price_gross", 0)
+      .limit(200);
+
+    // Group by ASIN+price to minimize API calls
+    const feeCache = new Map<string, { totalFees: number; referralFee: number; fbaFee: number; closingFee: number }>();
+    let feesEstimated = 0;
+
+    // Load COGS for profit calculation
+    const { data: cogsData } = await supabase
+      .from("cogs_periods")
+      .select("asin, total_cogs")
+      .is("valid_to", null);
+    const cogsMap = new Map((cogsData ?? []).map((c) => [c.asin, parseFloat(c.total_cogs)]));
+
+    for (const item of unfeedItems ?? []) {
+      const price = parseFloat(String(item.item_price_gross));
+      const cacheKey = `${item.asin}:${price.toFixed(2)}`;
+
+      let fees = feeCache.get(cacheKey);
+      if (!fees) {
+        try {
+          const estimate = await getFeesEstimateForASIN(item.asin, price);
+          if (estimate) {
+            fees = { totalFees: estimate.totalFees, referralFee: estimate.referralFee, fbaFee: estimate.fbaFee, closingFee: estimate.closingFee };
+            feeCache.set(cacheKey, fees);
+          }
+          await new Promise((r) => setTimeout(r, 1000));
+        } catch {
+          continue;
+        }
+      }
+
+      if (fees) {
+        const tax = parseFloat(String(item.item_tax ?? 0));
+        const promo = parseFloat(String(item.promo_discount ?? 0));
+        const cogs = cogsMap.get(item.asin) ?? 0;
+        const qty = item.qty ?? 1;
+        const profit = price - tax - promo - (fees.totalFees * qty) - (cogs * qty);
+
+        await supabase
+          .from("order_items")
+          .update({
+            estimated_fees: fees,
+            estimated_profit: profit,
+          })
+          .eq("order_item_id", item.order_item_id);
+        feesEstimated++;
+      }
+    }
+    console.log(`[orders-sync] Estimated fees for ${feesEstimated} items`);
+
+    console.log(`[orders-sync] Done: ${ordersWritten} orders, ${itemsWritten} items, ${feesEstimated} fees`);
 
     await supabase
       .from("sync_log")
