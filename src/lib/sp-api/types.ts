@@ -36,3 +36,46 @@ export interface GetOrderItemsResponse {
   OrderItems: SpApiOrderItem[];
   NextToken?: string;
 }
+
+export interface InventorySummary {
+  asin: string;
+  fnSku: string;
+  sellerSku: string;
+  productName: string;
+  condition: string;
+  totalQuantity: number;
+  inventoryDetails?: {
+    fulfillableQuantity?: number;
+    reservedQuantity?: {
+      totalReservedQuantity?: number;
+    };
+    unfulfillableQuantity?: {
+      totalUnfulfillableQuantity?: number;
+    };
+  };
+}
+
+export interface GetInventorySummariesResponse {
+  granularity: { granularityType: string; granularityId: string };
+  inventorySummaries: InventorySummary[];
+}
+
+export interface GetInventorySummariesPayload {
+  payload: GetInventorySummariesResponse;
+  pagination?: { nextToken?: string };
+}
+
+export interface CatalogImage {
+  link: string;
+  variant: string;
+  height: number;
+  width: number;
+}
+
+export interface CatalogItemImagesResponse {
+  asin: string;
+  images: Array<{
+    marketplaceId: string;
+    images: CatalogImage[];
+  }>;
+}
