@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { getRecentOrders, getOrderItems } from "@/lib/sp-api/orders";
 import type { SpApiOrder, SpApiOrderItem } from "@/lib/sp-api/types";
 
@@ -36,7 +36,7 @@ export async function syncOrders(): Promise<{
 }> {
   "use server";
 
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   const { data: lastSync } = await supabase
     .from("sync_log")

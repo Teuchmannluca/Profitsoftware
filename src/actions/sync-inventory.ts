@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import {
   getInventorySummaries,
   getCatalogItemImage,
@@ -41,9 +41,9 @@ export async function syncInventory(): Promise<{
 }> {
   "use server";
 
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
-  const { data: logEntry } = await supabase
+  const { data: logEntry, error: logError } = await supabase
     .from("sync_log")
     .insert({
       pillar: "inventory",
@@ -53,7 +53,16 @@ export async function syncInventory(): Promise<{
     .select("id")
     .single();
 
-  const logId = logEntry!.id;
+  if (logError || !logEntry) {
+    return {
+      productsWritten: 0,
+      snapshotsWritten: 0,
+      imagesUpdated: 0,
+      error: `Failed to create sync log: ${logError?.message ?? "unknown"}`,
+    };
+  }
+
+  const logId = logEntry.id;
 
   try {
     const summaries = await getInventorySummaries();
