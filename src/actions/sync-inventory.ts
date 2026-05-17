@@ -10,26 +10,25 @@ export function mapSummaryToProduct(summary: InventorySummary) {
     sku: summary.sellerSku,
     asin: summary.asin,
     fnsku: summary.fnSku,
-    title: summary.productName,
+    title: summary.productName ?? null,
     active: true,
     last_synced_at: new Date().toISOString(),
   };
 }
 
 export function mapSummaryToSnapshot(summary: InventorySummary, date: string) {
+  const details = summary.inventoryDetails;
   return {
     date,
     sku: summary.sellerSku,
     asin: summary.asin,
-    afn_fulfillable: summary.inventoryDetails?.fulfillableQuantity ?? 0,
-    afn_reserved:
-      summary.inventoryDetails?.reservedQuantity?.totalReservedQuantity ?? 0,
+    afn_fulfillable: details?.fulfillableQuantity ?? 0,
+    afn_reserved: details?.reservedQuantity?.totalReservedQuantity ?? 0,
     afn_unsellable:
-      summary.inventoryDetails?.unfulfillableQuantity
-        ?.totalUnfulfillableQuantity ?? 0,
+      details?.unfulfillableQuantity?.totalUnfulfillableQuantity ?? 0,
     afn_inbound: 0,
     mfn_quantity: 0,
-    total_quantity: summary.totalQuantity,
+    total_quantity: summary.totalQuantity ?? 0,
   };
 }
 
@@ -65,44 +64,82 @@ export async function syncInventory(): Promise<{
   const logId = logEntry.id;
 
   try {
+    console.log("[inventory-sync] Fetching inventory summaries from SP-API...");
     const summaries = await getInventorySummaries();
-    const today = new Date().toISOString().split("T")[0];
+    console.log(`[inventory-sync] Got ${summaries.length} summaries`);
 
-    let productsWritten = 0;
-    let snapshotsWritten = 0;
-
-    for (const summary of summaries) {
-      const productRow = mapSummaryToProduct(summary);
-      await supabase
-        .from("products")
-        .upsert(productRow, { onConflict: "sku" });
-      productsWritten++;
-
-      const snapshotRow = mapSummaryToSnapshot(summary, today);
-      await supabase
-        .from("inventory_snapshots")
-        .upsert(snapshotRow, { onConflict: "date,sku" });
-      snapshotsWritten++;
+    if (summaries.length > 0) {
+      console.log("[inventory-sync] Sample:", JSON.stringify(summaries[0], null, 2));
     }
 
+    const today = new Date().toISOString().split("T")[0];
+
+    const productRows = summaries.map((s) => mapSummaryToProduct(s));
+    const snapshotRows = summaries.map((s) => mapSummaryToSnapshot(s, today));
+
+    // Batch upsert products in chunks of 100
+    let productsWritten = 0;
+    for (let i = 0; i < productRows.length; i += 100) {
+      const chunk = productRows.slice(i, i + 100);
+      const { error: err } = await supabase
+        .from("products")
+        .upsert(chunk, { onConflict: "sku" });
+      if (err) {
+        console.error(`[inventory-sync] Product batch error:`, err.message);
+      } else {
+        productsWritten += chunk.length;
+      }
+    }
+    console.log(`[inventory-sync] Upserted ${productsWritten} products`);
+
+    // Batch upsert snapshots in chunks of 100
+    let snapshotsWritten = 0;
+    for (let i = 0; i < snapshotRows.length; i += 100) {
+      const chunk = snapshotRows.slice(i, i + 100);
+      const { error: err } = await supabase
+        .from("inventory_snapshots")
+        .upsert(chunk, { onConflict: "date,sku" });
+      if (err) {
+        console.error(`[inventory-sync] Snapshot batch error:`, err.message);
+      } else {
+        snapshotsWritten += chunk.length;
+      }
+    }
+    console.log(`[inventory-sync] Upserted ${snapshotsWritten} snapshots`);
+
+    // Fetch images for products missing them
     const { data: missingImages } = await supabase
       .from("products")
       .select("asin")
       .is("image_url", null)
       .not("asin", "is", null);
 
-    let imagesUpdated = 0;
+    const uniqueAsins = [...new Set((missingImages ?? []).map((r) => r.asin))];
+    console.log(`[inventory-sync] ${uniqueAsins.length} ASINs need images`);
 
-    for (const { asin } of missingImages ?? []) {
-      const imageUrl = await getCatalogItemImage(asin);
-      if (imageUrl) {
-        await supabase
-          .from("products")
-          .update({ image_url: imageUrl })
-          .eq("asin", asin);
-        imagesUpdated++;
+    let imagesUpdated = 0;
+    let imagesFailed = 0;
+    for (const asin of uniqueAsins) {
+      try {
+        const imageUrl = await getCatalogItemImage(asin);
+        if (imageUrl) {
+          await supabase
+            .from("products")
+            .update({ image_url: imageUrl })
+            .eq("asin", asin);
+          imagesUpdated++;
+        }
+      } catch {
+        imagesFailed++;
       }
+      // Throttle: 2 requests/sec limit on Catalog API
+      await new Promise((r) => setTimeout(r, 550));
     }
+    if (imagesFailed > 0) {
+      console.log(`[inventory-sync] ${imagesFailed} ASINs not found in catalog (old/inactive listings)`);
+    }
+
+    console.log(`[inventory-sync] Done: ${productsWritten} products, ${snapshotsWritten} snapshots, ${imagesUpdated} images`);
 
     await supabase
       .from("sync_log")
@@ -116,6 +153,7 @@ export async function syncInventory(): Promise<{
     return { productsWritten, snapshotsWritten, imagesUpdated };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
+    console.error(`[inventory-sync] ERROR:`, message);
 
     await supabase
       .from("sync_log")

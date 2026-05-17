@@ -1,6 +1,7 @@
+"use client";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Activity } from "lucide-react";
+import { Activity, CheckCircle2, XCircle, Loader2 } from "lucide-react";
 
 interface SyncLogEntry {
   pillar: string;
@@ -20,48 +21,75 @@ function timeAgo(dateStr: string): string {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
+function StatusIcon({ status }: { status: string }) {
+  if (status === "success") {
+    return (
+      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-50">
+        <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+      </div>
+    );
+  }
+  if (status === "error") {
+    return (
+      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-50">
+        <XCircle className="h-4 w-4 text-rose-500" />
+      </div>
+    );
+  }
+  return (
+    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-sky-50">
+      <Loader2 className="h-4 w-4 text-sky-500 animate-spin" />
+    </div>
+  );
+}
+
 export function SyncLogCard({ logs }: { logs: SyncLogEntry[] }) {
   return (
-    <Card className="h-full">
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-          <Activity className="h-4 w-4 text-muted-foreground" />
+    <Card className="overflow-hidden shadow-card ring-1 ring-border/50">
+      <CardHeader className="pb-4">
+        <CardTitle className="flex items-center gap-2.5 text-sm font-semibold">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-50">
+            <Activity className="h-4 w-4 text-violet-600" />
+          </div>
           Sync Activity
         </CardTitle>
       </CardHeader>
       <CardContent>
         {logs.length === 0 ? (
-          <p className="text-xs text-muted-foreground py-6 text-center">
-            No syncs yet
-          </p>
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <div className="rounded-2xl bg-violet-50 p-4 mb-3">
+              <Activity className="h-5 w-5 text-violet-400" />
+            </div>
+            <p className="text-sm font-semibold text-foreground">No syncs yet</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Data will appear after your first sync
+            </p>
+          </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-4">
             {logs.map((log, i) => (
               <div
                 key={i}
-                className="flex items-start justify-between gap-3 text-xs"
+                className="flex items-start gap-3 text-sm"
               >
-                <div className="space-y-0.5 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium capitalize">{log.pillar}</span>
-                    <Badge
-                      variant={log.status === "success" ? "default" : log.status === "running" ? "secondary" : "destructive"}
-                      className="h-4 px-1.5 text-[10px]"
-                    >
-                      {log.status}
-                    </Badge>
+                <StatusIcon status={log.status} />
+                <div className="flex-1 min-w-0 space-y-0.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-foreground capitalize text-[13px]">
+                      {log.pillar}
+                    </span>
+                    <span className="text-[11px] text-muted-foreground whitespace-nowrap">
+                      {log.finished_at ? timeAgo(log.finished_at) : "running..."}
+                    </span>
                   </div>
                   {log.error ? (
-                    <p className="text-destructive truncate">{log.error}</p>
+                    <p className="text-xs text-rose-600 truncate">{log.error}</p>
                   ) : (
-                    <p className="text-muted-foreground">
-                      {log.rows_written} rows written
+                    <p className="text-xs text-muted-foreground">
+                      {log.rows_written.toLocaleString()} rows written
                     </p>
                   )}
                 </div>
-                <span className="text-muted-foreground whitespace-nowrap">
-                  {log.finished_at ? timeAgo(log.finished_at) : "running..."}
-                </span>
               </div>
             ))}
           </div>

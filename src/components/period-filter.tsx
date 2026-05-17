@@ -22,13 +22,13 @@ export function PeriodFilter() {
   }
 
   return (
-    <div className="flex items-center rounded-lg border bg-muted/50 p-0.5">
+    <div className="flex items-center rounded-xl border border-border/80 bg-muted/40 p-0.5">
       {periods.map((p) => (
         <Button
           key={p.key}
           variant={current === p.key ? "default" : "ghost"}
           size="sm"
-          className="h-7 px-3 text-[11px] rounded-md"
+          className="h-7 px-3 text-[11px] rounded-lg font-medium"
           onClick={() => setPeriod(p.key)}
         >
           {p.label}

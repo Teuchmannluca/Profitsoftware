@@ -10,6 +10,9 @@ import { CircleGauge } from "@/components/circle-gauge";
 import { PageHeader } from "@/components/page-header";
 import { PeriodFilterDropdown } from "@/components/period-filter-dropdown";
 import { getDateRange, getSalesMetrics } from "@/lib/queries/sales";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { TrendingUp } from "lucide-react";
+import Image from "next/image";
 
 export const dynamic = "force-dynamic";
 
@@ -117,8 +120,27 @@ export default async function DashboardPage({
         })) ?? [],
     })) ?? [];
 
-  const totalOrders = orderCount ?? 0;
-  const totalItems = itemCount ?? 0;
+  // Aggregate top selling items by ASIN
+  const asinAgg = new Map<string, { asin: string; sku: string; title: string | null; image_url: string | null; units: number; sales: number; profit: number; cogs: number }>();
+  for (const item of orderItems ?? []) {
+    const price = parseFloat(String(item.item_price_gross ?? "0"));
+    if (price === 0) continue;
+    const asin = item.asin ?? item.sku;
+    const existing = asinAgg.get(asin) ?? {
+      asin,
+      sku: item.sku,
+      title: productMap.get(item.sku)?.title ?? null,
+      image_url: productMap.get(item.sku)?.image_url ?? null,
+      units: 0, sales: 0, profit: 0, cogs: 0,
+    };
+    existing.units += item.qty ?? 0;
+    existing.sales += price;
+    existing.profit += item.estimated_profit ? parseFloat(String(item.estimated_profit)) : price;
+    asinAgg.set(asin, existing);
+  }
+  const topSellers = [...asinAgg.values()]
+    .sort((a, b) => b.units - a.units)
+    .slice(0, 5);
 
   return (
     <div className="min-h-screen">
@@ -221,15 +243,76 @@ export default async function DashboardPage({
             />
           </div>
 
-          {/* Orders + Sync Log */}
+          {/* Top Sellers + Sync Log */}
           <div className="grid gap-6 lg:grid-cols-3">
             <div className="lg:col-span-2">
-              <RecentOrders orders={ordersWithItems} />
+              <Card className="overflow-hidden shadow-card ring-1 ring-border/50">
+                <CardHeader className="pb-4">
+                  <CardTitle className="flex items-center gap-2.5 text-sm font-semibold">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50">
+                      <TrendingUp className="h-4 w-4 text-amber-600" />
+                    </div>
+                    Your Top Selling Items
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  {topSellers.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-8">No sales data yet</p>
+                  ) : (
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-border/50 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                          <th className="text-left py-2.5 pl-6">Product</th>
+                          <th className="text-right py-2.5 px-3">Units</th>
+                          <th className="text-right py-2.5 px-3">Sales</th>
+                          <th className="text-right py-2.5 px-3">Profit</th>
+                          <th className="text-right py-2.5 pr-6">ROI %</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {topSellers.map((item) => {
+                          const roi = item.sales > 0 ? (item.profit / item.sales) * 100 : 0;
+                          return (
+                            <tr key={item.asin} className="border-b border-border/30 last:border-0">
+                              <td className="py-3 pl-6">
+                                <div className="flex items-center gap-3">
+                                  {item.image_url ? (
+                                    <Image
+                                      src={item.image_url}
+                                      alt={item.title ?? item.sku}
+                                      width={40}
+                                      height={40}
+                                      className="rounded-lg object-cover ring-1 ring-border/50"
+                                    />
+                                  ) : (
+                                    <div className="h-10 w-10 rounded-lg bg-muted" />
+                                  )}
+                                  <div className="min-w-0">
+                                    <p className="text-xs font-medium truncate max-w-[200px]">{item.title ?? item.sku}</p>
+                                    <p className="text-[10px] text-muted-foreground font-mono">{item.asin}</p>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="text-right px-3 font-mono text-xs font-semibold">{item.units}</td>
+                              <td className="text-right px-3 font-mono text-xs">£{item.sales.toFixed(2)}</td>
+                              <td className="text-right px-3 font-mono text-xs text-emerald-600 font-semibold">£{item.profit.toFixed(2)}</td>
+                              <td className="text-right pr-6 font-mono text-xs font-semibold">{roi.toFixed(1)}%</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  )}
+                </CardContent>
+              </Card>
             </div>
-            <div>
+            <div className="space-y-6">
               <SyncLogCard logs={syncLogs ?? []} />
             </div>
           </div>
+
+          {/* Recent Orders */}
+          <RecentOrders orders={ordersWithItems} />
         </div>
       </main>
     </div>

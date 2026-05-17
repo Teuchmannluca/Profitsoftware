@@ -79,3 +79,86 @@ export interface CatalogItemImagesResponse {
     images: CatalogImage[];
   }>;
 }
+
+// Product Fees API types
+export interface FeeEstimateRequest {
+  MarketplaceId: string;
+  IdType: "ASIN" | "SellerSKU";
+  IdValue: string;
+  IsAmazonFulfilled: boolean;
+  PriceToEstimateFees: {
+    ListingPrice: { CurrencyCode: string; Amount: number };
+  };
+  Identifier: string;
+}
+
+export interface FeeDetail {
+  FeeType: string;
+  FeeAmount: { CurrencyCode: string; Amount: number };
+  FinalFee: { CurrencyCode: string; Amount: number };
+}
+
+export interface FeesEstimateResult {
+  Status: string;
+  FeesEstimateIdentifier: {
+    MarketplaceId: string;
+    IdType: string;
+    IdValue: string;
+    IsAmazonFulfilled: boolean;
+    PriceToEstimateFees: {
+      ListingPrice: { CurrencyCode: string; Amount: number };
+    };
+    SellerInputIdentifier: string;
+  };
+  FeesEstimate?: {
+    TimeOfFeesEstimation: string;
+    TotalFeesEstimate: { CurrencyCode: string; Amount: number };
+    FeeDetailList: FeeDetail[];
+  };
+  Error?: { Type: string; Code: string; Message: string };
+}
+
+export interface FeeEstimateParsed {
+  asin: string;
+  price: number;
+  totalFees: number;
+  referralFee: number;
+  fbaFee: number;
+  closingFee: number;
+  currency: string;
+}
+
+// Finances API types
+export interface FinancialShipmentItem {
+  SellerSKU: string;
+  OrderItemId: string;
+  QuantityShipped: number;
+  ItemChargeList: Array<{
+    ChargeType: string;
+    ChargeAmount: { CurrencyCode: string; Amount: number };
+  }>;
+  ItemFeeList: Array<{
+    FeeType: string;
+    FeeAmount: { CurrencyCode: string; Amount: number };
+  }>;
+  PromotionList?: Array<{
+    PromotionType: string;
+    PromotionAmount: { CurrencyCode: string; Amount: number };
+  }>;
+}
+
+export interface ShipmentEvent {
+  AmazonOrderId: string;
+  SellerOrderId: string;
+  PostedDate: string;
+  MarketplaceName: string;
+  ShipmentItemList: FinancialShipmentItem[];
+}
+
+export interface FinancialEventsPayload {
+  FinancialEvents: {
+    ShipmentEventList?: ShipmentEvent[];
+    RefundEventList?: ShipmentEvent[];
+  };
+  NextToken?: string;
+}

@@ -1,21 +1,24 @@
 import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/sidebar";
 import { InventoryTable } from "@/components/inventory-table";
 import { SyncInventoryButton } from "@/components/sync-inventory-button";
+import { PageHeader } from "@/components/page-header";
 
 export const dynamic = "force-dynamic";
 
 export default async function InventoryPage() {
-  const supabase = await createClient();
+  const authClient = await createClient();
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await authClient.auth.getUser();
 
   if (!user) {
     redirect("/login");
   }
 
+  const supabase = createServiceClient();
   const today = new Date().toISOString().split("T")[0];
 
   const { data: inventoryRows } = await supabase
@@ -33,53 +36,66 @@ export default async function InventoryPage() {
     )
     .eq("date", today);
 
-  const skus = (inventoryRows ?? []).map((r) => r.sku);
+  const { data: products } = await supabase
+    .from("products")
+    .select("sku, asin, fnsku, title, image_url");
 
-  const { data: products } = skus.length > 0
-    ? await supabase
-        .from("products")
-        .select("sku, asin, fnsku, title, image_url")
-        .in("sku", skus)
-    : { data: [] };
-
-  const productMap = new Map(
-    (products ?? []).map((p) => [p.sku, p])
+  const snapshotMap = new Map(
+    (inventoryRows ?? []).map((s) => [s.sku, s])
   );
 
-  const rows = (inventoryRows ?? []).map((snap) => {
-    const product = productMap.get(snap.sku);
+  const rows = (products ?? []).map((product) => {
+    const snap = snapshotMap.get(product.sku);
     return {
-      sku: snap.sku,
-      asin: product?.asin ?? snap.asin,
-      fnsku: product?.fnsku ?? null,
-      title: product?.title ?? null,
-      image_url: product?.image_url ?? null,
-      afn_fulfillable: snap.afn_fulfillable,
-      afn_reserved: snap.afn_reserved,
-      afn_inbound: snap.afn_inbound,
-      afn_unsellable: snap.afn_unsellable,
-      total_quantity: snap.total_quantity,
+      sku: product.sku,
+      asin: product.asin,
+      fnsku: product.fnsku,
+      title: product.title,
+      image_url: product.image_url,
+      afn_fulfillable: snap?.afn_fulfillable ?? 0,
+      afn_reserved: snap?.afn_reserved ?? 0,
+      afn_inbound: snap?.afn_inbound ?? 0,
+      afn_unsellable: snap?.afn_unsellable ?? 0,
+      total_quantity: snap?.total_quantity ?? 0,
     };
   });
+
+  const inStockCount = rows.filter((r) => r.total_quantity > 0).length;
+  const lowStockCount = rows.filter((r) => r.afn_fulfillable > 0 && r.afn_fulfillable < 10).length;
+  const outOfStockCount = rows.filter((r) => r.total_quantity === 0).length;
 
   return (
     <div className="min-h-screen">
       <Sidebar email={user.email ?? ""} />
 
-      <main className="pl-[220px]">
-        <div className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-40">
-          <div className="flex h-14 items-center justify-between px-8">
-            <div>
-              <h1 className="text-sm font-semibold">Inventory</h1>
-              <p className="text-[11px] text-muted-foreground">
-                FBA stock levels
-              </p>
-            </div>
-            <SyncInventoryButton />
-          </div>
-        </div>
+      <main className="pl-[240px]">
+        <PageHeader
+          title="Inventory"
+          subtitle="FBA stock levels & warehouse management"
+          action={<SyncInventoryButton />}
+        />
 
-        <div className="p-8">
+        <div className="p-8 space-y-6">
+          {/* Stock summary pills */}
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2 rounded-full bg-emerald-50 px-3.5 py-1.5 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-600/15">
+              <span className="h-2 w-2 rounded-full bg-emerald-500" />
+              {inStockCount} In Stock
+            </div>
+            {lowStockCount > 0 && (
+              <div className="flex items-center gap-2 rounded-full bg-amber-50 px-3.5 py-1.5 text-xs font-semibold text-amber-700 ring-1 ring-amber-600/15">
+                <span className="h-2 w-2 rounded-full bg-amber-500" />
+                {lowStockCount} Low Stock
+              </div>
+            )}
+            {outOfStockCount > 0 && (
+              <div className="flex items-center gap-2 rounded-full bg-rose-50 px-3.5 py-1.5 text-xs font-semibold text-rose-700 ring-1 ring-rose-600/15">
+                <span className="h-2 w-2 rounded-full bg-rose-500" />
+                {outOfStockCount} Out of Stock
+              </div>
+            )}
+          </div>
+
           <InventoryTable rows={rows} />
         </div>
       </main>

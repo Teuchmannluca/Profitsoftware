@@ -144,6 +144,7 @@ export async function getSalesMetrics(from: Date, to: Date): Promise<SalesMetric
     .single();
 
   const vatStatus = settings?.vat_status ?? "standard";
+  console.log(`[sales] VAT status from DB: "${vatStatus}", gross: ${grossSales.toFixed(2)}, fees: ${totalFees.toFixed(2)}, vatCollected: ${vatCollected.toFixed(2)}`);
 
   let netRevenue: number;
   let adjustedFees: number;

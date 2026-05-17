@@ -153,8 +153,8 @@ export async function getProductInsight(asin: string): Promise<ProductInsight | 
     grossSales += parseFloat(String(item.item_price_gross ?? "0"));
     vatCollected += parseFloat(String(item.item_tax ?? "0"));
     promoDiscount += parseFloat(String(item.promo_discount ?? "0"));
-    unitsSold += item.qty ?? 0;
-    orderIds.add(item.amazon_order_id);
+    unitsSold += Number(item.qty ?? 0);
+    orderIds.add(String(item.amazon_order_id));
 
     if (item.refund_status && item.refund_status !== "none") {
       refundCount++;
@@ -164,7 +164,7 @@ export async function getProductInsight(asin: string): Promise<ProductInsight | 
       (item.actual_fees as Record<string, unknown>) ??
       (item.estimated_fees as Record<string, unknown>);
     const perUnitFee = parseFloat(String(fees?.totalFees ?? "0"));
-    totalFees += perUnitFee * (item.qty ?? 0);
+    totalFees += perUnitFee * Number(item.qty ?? 0);
   }
 
   const totalCogs = unitCogs * unitsSold;
@@ -191,12 +191,12 @@ export async function getProductInsight(asin: string): Promise<ProductInsight | 
       monthlyMap.set(monthKey, entry);
     }
 
-    const qty = item.qty ?? 0;
+    const qty = Number(item.qty ?? 0);
     entry.units += qty;
     entry.revenue += parseFloat(String(item.item_price_gross ?? "0")) -
       parseFloat(String(item.item_tax ?? "0")) -
       parseFloat(String(item.promo_discount ?? "0"));
-    entry.orders.add(item.amazon_order_id);
+    entry.orders.add(String(item.amazon_order_id));
 
     const fees =
       (item.actual_fees as Record<string, unknown>) ??
@@ -229,7 +229,7 @@ export async function getProductInsight(asin: string): Promise<ProductInsight | 
   for (const item of items ?? []) {
     const order = item.orders as unknown as { purchase_date: string };
     if (new Date(order.purchase_date) >= thirtyDaysAgoDate) {
-      unitsLast30 += item.qty ?? 0;
+      unitsLast30 += Number(item.qty ?? 0);
     }
   }
   const dailyRate = unitsLast30 / 30;
@@ -264,12 +264,12 @@ export async function getProductInsight(asin: string): Promise<ProductInsight | 
     const fees =
       (item.actual_fees as Record<string, unknown>) ??
       (item.estimated_fees as Record<string, unknown>);
-    const feesTotal = parseFloat(String(fees?.totalFees ?? "0")) * (item.qty ?? 0);
+    const feesTotal = parseFloat(String(fees?.totalFees ?? "0")) * Number(item.qty ?? 0);
 
     recentOrders.push({
-      amazonOrderId: item.amazon_order_id,
+      amazonOrderId: String(item.amazon_order_id),
       purchaseDate: order.purchase_date,
-      qty: item.qty ?? 0,
+      qty: Number(item.qty ?? 0),
       priceGross: parseFloat(String(item.item_price_gross ?? "0")),
       tax: parseFloat(String(item.item_tax ?? "0")),
       fees: feesTotal,

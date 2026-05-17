@@ -20,8 +20,8 @@ function PercentChange({ current, previous }: { current: number; previous: numbe
 
   return (
     <span
-      className={`inline-flex items-center gap-0.5 text-[10px] font-medium ${
-        isPositive ? "text-emerald-500" : "text-rose-500"
+      className={`inline-flex items-center gap-0.5 text-[10px] font-semibold ${
+        isPositive ? "text-emerald-600" : "text-rose-600"
       }`}
     >
       {isPositive ? (
@@ -57,9 +57,9 @@ function MetricRow({
   };
 
   return (
-    <div className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-3 py-1.5">
-      <span className="text-[11px] text-muted-foreground">{label}</span>
-      <span className="text-xs font-mono font-medium text-right w-16">
+    <div className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-3 py-2 border-b border-border/30 last:border-0">
+      <span className="text-xs font-medium text-muted-foreground">{label}</span>
+      <span className="text-xs font-mono font-semibold text-right w-16 text-foreground">
         {formatValue(currentValue)}
       </span>
       <span className="text-xs font-mono text-muted-foreground text-right w-16">
@@ -74,26 +74,28 @@ function MetricRow({
 
 export function MonthComparison({ currentMonth, previousMonth }: MonthComparisonProps) {
   return (
-    <Card className="h-full">
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-          <BarChart3 className="h-4 w-4 text-muted-foreground" />
+    <Card className="h-full overflow-hidden shadow-card ring-1 ring-border/50">
+      <CardHeader className="pb-4">
+        <CardTitle className="flex items-center gap-2.5 text-sm font-semibold">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50">
+            <BarChart3 className="h-4 w-4 text-amber-600" />
+          </div>
           Month Comparison
         </CardTitle>
-        <div className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-3 pt-2">
+        <div className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-3 pt-1">
           <span />
-          <span className="text-[10px] font-medium text-muted-foreground text-right w-16">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground text-right w-16">
             {currentMonth.label}
           </span>
-          <span className="text-[10px] font-medium text-muted-foreground text-right w-16">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground text-right w-16">
             {previousMonth.label}
           </span>
-          <span className="text-[10px] font-medium text-muted-foreground text-right w-12">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground text-right w-12">
             Change
           </span>
         </div>
       </CardHeader>
-      <CardContent className="space-y-0.5">
+      <CardContent className="space-y-0">
         <MetricRow
           label="Gross Sales"
           currentValue={currentMonth.metrics.grossSales}

@@ -162,8 +162,7 @@ async function main() {
   const groups = new Map<string, { asin: string; price: number }>();
   for (const item of items) {
     const price = parseFloat(String(item.item_price_gross ?? "0"));
-    const qty = item.qty ?? 1;
-    // Price is total for qty, so per-unit price for fee estimate
+    const qty = Number(item.qty ?? 1);
     const unitPrice = qty > 0 ? price / qty : price;
     const key = groupKey(item.asin, unitPrice);
     if (!groups.has(key)) {

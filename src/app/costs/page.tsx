@@ -3,6 +3,8 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/sidebar";
 import { CogsTable } from "@/components/cogs-table";
+import { PageHeader } from "@/components/page-header";
+import { Receipt } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -29,24 +31,20 @@ export default async function CostsPage() {
 
   const supabase = createServiceClient();
 
-  // Fetch all products
   const { data: products } = await supabase
     .from("products")
     .select("sku, asin, title, image_url, vat_rate");
 
-  // Fetch active cogs_periods (where valid_to is null)
   const { data: cogsPeriods } = await supabase
     .from("cogs_periods")
     .select("asin, unit_cost, prep_cost, total_cogs, valid_from")
     .is("valid_to", null);
 
-  // Build a map of ASIN -> current cost
   const costMap = new Map<
     string,
     { unit_cost: number; prep_cost: number; total_cogs: number }
   >();
   for (const period of cogsPeriods ?? []) {
-    // If multiple active periods for same ASIN, keep the latest valid_from
     const existing = costMap.get(period.asin);
     if (!existing) {
       costMap.set(period.asin, {
@@ -57,7 +55,6 @@ export default async function CostsPage() {
     }
   }
 
-  // Join products with cost data
   const rows: ProductCostRow[] = (products ?? []).map((product) => {
     const cost = product.asin ? costMap.get(product.asin) : undefined;
     return {
@@ -76,17 +73,11 @@ export default async function CostsPage() {
     <div className="min-h-screen">
       <Sidebar email={user.email ?? ""} />
 
-      <main className="pl-[220px]">
-        <div className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-40">
-          <div className="flex h-14 items-center justify-between px-8">
-            <div>
-              <h1 className="text-sm font-semibold">Costs</h1>
-              <p className="text-[11px] text-muted-foreground">
-                Product cost management
-              </p>
-            </div>
-          </div>
-        </div>
+      <main className="pl-[240px]">
+        <PageHeader
+          title="Costs"
+          subtitle="Product cost management & COGS tracking"
+        />
 
         <div className="p-8">
           <CogsTable rows={rows} />

@@ -68,3 +68,57 @@ export async function deleteCogsPeriod(
 
   return { success: true };
 }
+
+export async function setProductCost(
+  asin: string,
+  unitCost: number,
+  prepCost: number
+): Promise<{ success: boolean; error?: string }> {
+  "use server";
+
+  const supabase = createServiceClient();
+  const today = new Date().toISOString().split("T")[0];
+
+  const { data: existing } = await supabase
+    .from("cogs_periods")
+    .select("id")
+    .eq("asin", asin)
+    .is("valid_to", null)
+    .eq("valid_from", today)
+    .single();
+
+  if (existing) {
+    const { error } = await supabase
+      .from("cogs_periods")
+      .update({ unit_cost: unitCost, prep_cost: prepCost })
+      .eq("id", existing.id);
+    if (error) return { success: false, error: error.message };
+  } else {
+    const { error } = await supabase.from("cogs_periods").insert({
+      asin,
+      unit_cost: unitCost,
+      prep_cost: prepCost,
+      valid_from: today,
+    });
+    if (error) return { success: false, error: error.message };
+  }
+
+  return { success: true };
+}
+
+export async function setProductVat(
+  sku: string,
+  vatRate: number
+): Promise<{ success: boolean; error?: string }> {
+  "use server";
+
+  const supabase = createServiceClient();
+
+  const { error } = await supabase
+    .from("products")
+    .update({ vat_rate: vatRate })
+    .eq("sku", sku);
+
+  if (error) return { success: false, error: error.message };
+  return { success: true };
+}

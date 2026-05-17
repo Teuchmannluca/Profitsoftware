@@ -1,4 +1,5 @@
 import { spApiFetch } from "./client";
+import { refreshAccessToken } from "./auth";
 import type {
   InventorySummary,
   GetInventorySummariesPayload,
@@ -12,6 +13,7 @@ export async function getInventorySummaries(): Promise<InventorySummary[]> {
 
   do {
     const params = new URLSearchParams({
+      details: "true",
       granularityType: "Marketplace",
       granularityId: marketplaceId,
       marketplaceIds: marketplaceId,
@@ -41,9 +43,22 @@ export async function getCatalogItemImage(
     includedData: "images",
   });
 
-  const response = await spApiFetch(
-    `/catalog/2022-04-01/items/${asin}?${params}`
+  const token = await refreshAccessToken();
+
+  const response = await fetch(
+    `https://sellingpartnerapi-eu.amazon.com/catalog/2022-04-01/items/${asin}?${params}`,
+    {
+      headers: {
+        "x-amz-access-token": token,
+        "Content-Type": "application/json",
+      },
+    }
   );
+
+  if (!response.ok) {
+    return null;
+  }
+
   const data: CatalogItemImagesResponse = await response.json();
 
   for (const imageSet of data.images ?? []) {
