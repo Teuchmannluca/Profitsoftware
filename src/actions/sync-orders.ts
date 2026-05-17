@@ -93,7 +93,8 @@ export async function syncOrders(sinceOverride?: string): Promise<{
     }
     console.log(`[orders-sync] Upserted ${ordersWritten} orders`);
 
-    // Fetch items for each order (rate limited by SP-API)
+    // Fetch items for each order — rate limit: 0.5 req/sec (burst 30)
+    // Throttle to ~2 seconds between calls to stay safe
     for (let i = 0; i < Orders.length; i++) {
       const order = Orders[i];
       try {
@@ -111,11 +112,21 @@ export async function syncOrders(sinceOverride?: string): Promise<{
             itemsWritten += itemRows.length;
           }
         }
-      } catch (itemErr) {
-        console.error(`[orders-sync] Failed to get items for ${order.AmazonOrderId}:`, itemErr);
+      } catch (itemErr: unknown) {
+        const msg = itemErr instanceof Error ? itemErr.message : String(itemErr);
+        if (msg.includes("429") || msg.includes("QuotaExceeded")) {
+          console.log(`[orders-sync] Rate limited at order ${i + 1}/${Orders.length}, waiting 60s...`);
+          await new Promise((r) => setTimeout(r, 60000));
+          i--; // retry this order
+          continue;
+        }
+        console.error(`[orders-sync] Failed to get items for ${order.AmazonOrderId}:`, msg);
       }
 
-      if ((i + 1) % 50 === 0) {
+      // Throttle: wait 2s between getOrderItems calls
+      await new Promise((r) => setTimeout(r, 2000));
+
+      if ((i + 1) % 25 === 0) {
         console.log(`[orders-sync] Progress: ${i + 1}/${Orders.length} orders processed, ${itemsWritten} items`);
       }
     }

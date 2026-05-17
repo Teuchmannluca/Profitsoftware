@@ -25,6 +25,12 @@ export async function getRecentOrders(
     nextToken = data.payload?.NextToken ?? undefined;
 
     console.log(`[orders-sync] Fetched page: ${data.payload?.Orders?.length ?? 0} orders (total so far: ${allOrders.length})`);
+
+    // getOrders rate limit: 1 req/min sustained. Wait between pages.
+    if (nextToken) {
+      console.log(`[orders-sync] Waiting 3s before next page...`);
+      await new Promise((r) => setTimeout(r, 3000));
+    }
   } while (nextToken);
 
   return { Orders: allOrders };
