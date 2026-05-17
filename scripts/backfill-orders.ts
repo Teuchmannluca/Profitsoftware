@@ -73,7 +73,7 @@ async function fetchAllOrders(since: Date): Promise<Array<Record<string, unknown
     const params = new URLSearchParams({
       MarketplaceIds: MARKETPLACE_ID,
       LastUpdatedAfter: since.toISOString(),
-      OrderStatuses: "Shipped,Unshipped,PartiallyShipped",
+      OrderStatuses: "Shipped,Unshipped,PartiallyShipped,Pending,InvoiceUnconfirmed",
     });
     if (nextToken) params.set("NextToken", nextToken);
 
