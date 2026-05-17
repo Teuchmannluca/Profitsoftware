@@ -133,6 +133,46 @@ export async function syncOrders(sinceOverride?: string): Promise<{
       }
     }
 
+    // Fill in prices for Pending orders (£0) using last known price per ASIN
+    const { data: zeroPriceItems } = await supabase
+      .from("order_items")
+      .select("order_item_id, asin")
+      .eq("item_price_gross", 0)
+      .not("asin", "is", null);
+
+    if (zeroPriceItems && zeroPriceItems.length > 0) {
+      const uniqueAsins = [...new Set(zeroPriceItems.map((i) => i.asin))];
+      const priceMap = new Map<string, number>();
+
+      for (const asin of uniqueAsins) {
+        const { data: lastKnown } = await supabase
+          .from("order_items")
+          .select("item_price_gross")
+          .eq("asin", asin)
+          .gt("item_price_gross", 0)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .single();
+
+        if (lastKnown) {
+          priceMap.set(asin, parseFloat(String(lastKnown.item_price_gross)));
+        }
+      }
+
+      let pricesFilled = 0;
+      for (const item of zeroPriceItems) {
+        const price = priceMap.get(item.asin);
+        if (price) {
+          await supabase
+            .from("order_items")
+            .update({ item_price_gross: price })
+            .eq("order_item_id", item.order_item_id);
+          pricesFilled++;
+        }
+      }
+      console.log(`[orders-sync] Filled ${pricesFilled} pending order prices from last known prices`);
+    }
+
     // Estimate fees for new items that don't have them yet
     console.log(`[orders-sync] Estimating fees for new items...`);
     const { data: unfeedItems } = await supabase
