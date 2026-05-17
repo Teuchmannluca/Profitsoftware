@@ -189,7 +189,7 @@ export async function syncOrders(sinceOverride?: string): Promise<{
       .limit(200);
 
     // Group by ASIN+price to minimize API calls
-    const feeCache = new Map<string, { totalFees: number; referralFee: number; fbaFee: number; closingFee: number }>();
+    const feeCache = new Map<string, Record<string, number>>();
     let feesEstimated = 0;
 
     // Load COGS for profit calculation
@@ -208,7 +208,16 @@ export async function syncOrders(sinceOverride?: string): Promise<{
         try {
           const estimate = await getFeesEstimateForASIN(item.asin, price);
           if (estimate) {
-            fees = { totalFees: estimate.totalFees, referralFee: estimate.referralFee, fbaFee: estimate.fbaFee, closingFee: estimate.closingFee };
+            fees = {
+              totalFees: estimate.totalFees,
+              referralFee: estimate.referralFee,
+              fbaFee: estimate.fbaFee,
+              closingFee: estimate.closingFee,
+              digitalServicesFee: estimate.digitalServicesFee,
+              storageFee: estimate.storageFee,
+              otherFees: estimate.otherFees,
+              ...estimate.feeBreakdown,
+            };
             feeCache.set(cacheKey, fees);
           }
           await new Promise((r) => setTimeout(r, 1000));

@@ -125,6 +125,10 @@ export interface FeeEstimateParsed {
   referralFee: number;
   fbaFee: number;
   closingFee: number;
+  digitalServicesFee: number;
+  storageFee: number;
+  otherFees: number;
+  feeBreakdown: Record<string, number>;
   currency: string;
 }
 

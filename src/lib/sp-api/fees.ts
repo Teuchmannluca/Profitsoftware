@@ -3,6 +3,19 @@ import type { FeesEstimateResult, FeeEstimateParsed } from "./types";
 
 const BASE_URL = "https://sellingpartnerapi-eu.amazon.com";
 
+const KNOWN_FEE_TYPES: Record<string, string> = {
+  ReferralFee: "referralFee",
+  FBAFees: "fbaFee",
+  FBAPerUnitFulfillmentFee: "fbaFee",
+  VariableClosingFee: "closingFee",
+  DigitalServicesFee: "digitalServicesFee",
+  FBAStorageFee: "storageFee",
+  BubblewrapFee: "otherFees",
+  FBATransportationFee: "otherFees",
+  FBAInboundTransportationFee: "otherFees",
+  GiftwrapChargeback: "otherFees",
+};
+
 export async function getFeesEstimateForASIN(
   asin: string,
   price: number
@@ -46,17 +59,40 @@ export async function getFeesEstimateForASIN(
   if (!result?.FeesEstimate) return null;
 
   const fees = result.FeesEstimate;
-  const feeMap = new Map(
-    fees.FeeDetailList.map((f) => [f.FeeType, f.FinalFee.Amount])
-  );
+
+  const feeBreakdown: Record<string, number> = {};
+  let referralFee = 0;
+  let fbaFee = 0;
+  let closingFee = 0;
+  let digitalServicesFee = 0;
+  let storageFee = 0;
+  let otherFees = 0;
+
+  for (const detail of fees.FeeDetailList) {
+    const amount = detail.FinalFee.Amount;
+    feeBreakdown[detail.FeeType] = amount;
+
+    const mapped = KNOWN_FEE_TYPES[detail.FeeType];
+    if (mapped === "referralFee") referralFee += amount;
+    else if (mapped === "fbaFee") fbaFee += amount;
+    else if (mapped === "closingFee") closingFee += amount;
+    else if (mapped === "digitalServicesFee") digitalServicesFee += amount;
+    else if (mapped === "storageFee") storageFee += amount;
+    else if (mapped === "otherFees") otherFees += amount;
+    else otherFees += amount;
+  }
 
   return {
     asin,
     price,
     totalFees: fees.TotalFeesEstimate.Amount,
-    referralFee: feeMap.get("ReferralFee") ?? 0,
-    fbaFee: feeMap.get("FBAFees") ?? feeMap.get("FBAPerUnitFulfillmentFee") ?? 0,
-    closingFee: feeMap.get("VariableClosingFee") ?? 0,
+    referralFee,
+    fbaFee,
+    closingFee,
+    digitalServicesFee,
+    storageFee,
+    otherFees,
+    feeBreakdown,
     currency: fees.TotalFeesEstimate.CurrencyCode,
   };
 }
