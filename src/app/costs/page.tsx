@@ -2,10 +2,20 @@ import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/sidebar";
-import { AddCostForm } from "@/components/add-cost-form";
-import { CogsTable, type CogsPeriodRow } from "@/components/cogs-table";
+import { CogsTable } from "@/components/cogs-table";
 
 export const dynamic = "force-dynamic";
+
+export interface ProductCostRow {
+  sku: string;
+  asin: string | null;
+  title: string | null;
+  image_url: string | null;
+  vat_rate: number;
+  unit_cost: number | null;
+  prep_cost: number | null;
+  total_cogs: number | null;
+}
 
 export default async function CostsPage() {
   const authClient = await createClient();
@@ -19,41 +29,46 @@ export default async function CostsPage() {
 
   const supabase = createServiceClient();
 
-  // Fetch all COGS periods
-  const { data: cogsPeriods } = await supabase
-    .from("cogs_periods")
-    .select("*")
-    .order("valid_from", { ascending: false });
-
-  // Fetch all products for ASIN selector and joining
+  // Fetch all products
   const { data: products } = await supabase
     .from("products")
-    .select("sku, asin, title, image_url");
+    .select("sku, asin, title, image_url, vat_rate");
 
-  // Build a map of ASIN -> product info
-  const productMap = new Map<string, { title: string | null; image_url: string | null }>();
-  for (const p of products ?? []) {
-    if (p.asin && !productMap.has(p.asin)) {
-      productMap.set(p.asin, { title: p.title, image_url: p.image_url });
+  // Fetch active cogs_periods (where valid_to is null)
+  const { data: cogsPeriods } = await supabase
+    .from("cogs_periods")
+    .select("asin, unit_cost, prep_cost, total_cogs, valid_from")
+    .is("valid_to", null);
+
+  // Build a map of ASIN -> current cost
+  const costMap = new Map<
+    string,
+    { unit_cost: number; prep_cost: number; total_cogs: number }
+  >();
+  for (const period of cogsPeriods ?? []) {
+    // If multiple active periods for same ASIN, keep the latest valid_from
+    const existing = costMap.get(period.asin);
+    if (!existing) {
+      costMap.set(period.asin, {
+        unit_cost: parseFloat(period.unit_cost),
+        prep_cost: parseFloat(period.prep_cost),
+        total_cogs: parseFloat(period.total_cogs),
+      });
     }
   }
 
-  // Join COGS periods with product info
-  const rows: CogsPeriodRow[] = (cogsPeriods ?? []).map((period) => {
-    const product = productMap.get(period.asin);
+  // Join products with cost data
+  const rows: ProductCostRow[] = (products ?? []).map((product) => {
+    const cost = product.asin ? costMap.get(product.asin) : undefined;
     return {
-      id: period.id,
-      asin: period.asin,
-      unit_cost: parseFloat(period.unit_cost),
-      prep_cost: parseFloat(period.prep_cost),
-      total_cogs: parseFloat(period.total_cogs),
-      valid_from: period.valid_from,
-      valid_to: period.valid_to,
-      notes: period.notes,
-      currency: period.currency,
-      created_at: period.created_at,
-      title: product?.title ?? null,
-      image_url: product?.image_url ?? null,
+      sku: product.sku,
+      asin: product.asin,
+      title: product.title,
+      image_url: product.image_url,
+      vat_rate: product.vat_rate ?? 20,
+      unit_cost: cost?.unit_cost ?? null,
+      prep_cost: cost?.prep_cost ?? null,
+      total_cogs: cost?.total_cogs ?? null,
     };
   });
 
@@ -70,7 +85,6 @@ export default async function CostsPage() {
                 Product cost management
               </p>
             </div>
-            <AddCostForm products={products ?? []} />
           </div>
         </div>
 

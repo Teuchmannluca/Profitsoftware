@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useState } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
@@ -14,230 +14,95 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Receipt, ChevronDown, ChevronRight, Pencil, Trash2, Check, X, Warehouse } from "lucide-react";
-import { updateCogsPeriod, deleteCogsPeriod } from "@/actions/cogs-action";
+import { Receipt, Search, Warehouse } from "lucide-react";
+import { setProductCost, setProductVat } from "@/actions/cogs-action";
+import type { ProductCostRow } from "@/app/costs/page";
 
-export interface CogsPeriodRow {
-  id: string;
-  asin: string;
-  unit_cost: number;
-  prep_cost: number;
-  total_cogs: number;
-  valid_from: string;
-  valid_to: string | null;
-  notes: string | null;
-  currency: string;
-  created_at: string;
-  title: string | null;
-  image_url: string | null;
+type FilterMode = "all" | "with_costs" | "missing_costs";
+
+interface EditingCell {
+  sku: string;
+  field: "unit_cost" | "prep_cost" | "vat";
 }
 
-function formatMoney(value: number): string {
-  return `£${value.toFixed(2)}`;
-}
-
-function EditRow({
-  period,
-  onCancel,
-  onSaved,
-}: {
-  period: CogsPeriodRow;
-  onCancel: () => void;
-  onSaved: () => void;
-}) {
-  const [unitCost, setUnitCost] = useState(period.unit_cost.toString());
-  const [prepCost, setPrepCost] = useState(period.prep_cost.toString());
-  const [notes, setNotes] = useState(period.notes ?? "");
-  const [loading, setLoading] = useState(false);
-
-  async function handleSave() {
-    setLoading(true);
-    await updateCogsPeriod(period.id, {
-      unitCost: parseFloat(unitCost),
-      prepCost: parseFloat(prepCost || "0"),
-      notes: notes || undefined,
-    });
-    setLoading(false);
-    onSaved();
-  }
-
-  return (
-    <TableRow className="bg-muted/30">
-      <TableCell />
-      <TableCell />
-      <TableCell />
-      <TableCell>
-        <Input
-          type="number"
-          step="0.01"
-          value={unitCost}
-          onChange={(e) => setUnitCost(e.target.value)}
-          className="h-7 w-20 font-mono text-xs"
-        />
-      </TableCell>
-      <TableCell>
-        <Input
-          type="number"
-          step="0.01"
-          value={prepCost}
-          onChange={(e) => setPrepCost(e.target.value)}
-          className="h-7 w-20 font-mono text-xs"
-        />
-      </TableCell>
-      <TableCell className="font-mono text-xs">
-        {formatMoney(parseFloat(unitCost || "0") + parseFloat(prepCost || "0"))}
-      </TableCell>
-      <TableCell className="text-xs">{period.valid_from}</TableCell>
-      <TableCell>
-        <Input
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          className="h-7 w-32 text-xs"
-          placeholder="Notes"
-        />
-      </TableCell>
-      <TableCell>
-        <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 w-6 p-0"
-            onClick={handleSave}
-            disabled={loading}
-          >
-            <Check className="h-3.5 w-3.5 text-green-500" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 w-6 p-0"
-            onClick={onCancel}
-          >
-            <X className="h-3.5 w-3.5 text-muted-foreground" />
-          </Button>
-        </div>
-      </TableCell>
-    </TableRow>
-  );
-}
-
-function HistoryRow({
-  period,
-  onRefresh,
-}: {
-  period: CogsPeriodRow;
-  onRefresh: () => void;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-
-  async function handleDelete() {
-    setDeleting(true);
-    await deleteCogsPeriod(period.id);
-    setDeleting(false);
-    onRefresh();
-  }
-
-  if (editing) {
-    return (
-      <EditRow
-        period={period}
-        onCancel={() => setEditing(false)}
-        onSaved={() => {
-          setEditing(false);
-          onRefresh();
-        }}
-      />
-    );
-  }
-
-  return (
-    <TableRow className="bg-muted/20">
-      <TableCell />
-      <TableCell />
-      <TableCell />
-      <TableCell className="font-mono text-xs">
-        {formatMoney(period.unit_cost)}
-      </TableCell>
-      <TableCell className="font-mono text-xs">
-        {formatMoney(period.prep_cost)}
-      </TableCell>
-      <TableCell className="font-mono text-xs font-semibold">
-        {formatMoney(period.total_cogs)}
-      </TableCell>
-      <TableCell className="text-xs">
-        {period.valid_from}
-        {period.valid_to && (
-          <span className="text-muted-foreground"> to {period.valid_to}</span>
-        )}
-      </TableCell>
-      <TableCell className="text-xs text-muted-foreground max-w-[120px] truncate">
-        {period.notes ?? "—"}
-      </TableCell>
-      <TableCell>
-        <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 w-6 p-0"
-            onClick={() => setEditing(true)}
-          >
-            <Pencil className="h-3 w-3 text-muted-foreground" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 w-6 p-0"
-            onClick={handleDelete}
-            disabled={deleting}
-          >
-            <Trash2 className="h-3 w-3 text-muted-foreground hover:text-destructive" />
-          </Button>
-        </div>
-      </TableCell>
-    </TableRow>
-  );
-}
-
-export function CogsTable({ rows }: { rows: CogsPeriodRow[] }) {
+export function CogsTable({ rows }: { rows: ProductCostRow[] }) {
   const router = useRouter();
-  const [expandedAsins, setExpandedAsins] = useState<Set<string>>(new Set());
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<FilterMode>("all");
+  const [editing, setEditing] = useState<EditingCell | null>(null);
+  const [editValue, setEditValue] = useState("");
+  const [saving, setSaving] = useState(false);
 
-  // Group rows by ASIN
-  const grouped = rows.reduce<Record<string, CogsPeriodRow[]>>((acc, row) => {
-    if (!acc[row.asin]) acc[row.asin] = [];
-    acc[row.asin].push(row);
-    return acc;
-  }, {});
+  const filteredRows = useMemo(() => {
+    let result = rows;
 
-  // Sort periods within each group by valid_from desc
-  for (const asin of Object.keys(grouped)) {
-    grouped[asin].sort(
-      (a, b) => new Date(b.valid_from).getTime() - new Date(a.valid_from).getTime()
-    );
+    // Apply search filter
+    if (search) {
+      const q = search.toLowerCase();
+      result = result.filter(
+        (r) =>
+          r.title?.toLowerCase().includes(q) ||
+          r.asin?.toLowerCase().includes(q)
+      );
+    }
+
+    // Apply cost filter
+    if (filter === "with_costs") {
+      result = result.filter((r) => r.unit_cost !== null);
+    } else if (filter === "missing_costs") {
+      result = result.filter((r) => r.unit_cost === null);
+    }
+
+    return result;
+  }, [rows, search, filter]);
+
+  function startEdit(sku: string, field: EditingCell["field"], currentValue: string) {
+    setEditing({ sku, field });
+    setEditValue(currentValue);
   }
 
-  // Sort groups by latest period's valid_from desc
-  const sortedAsins = Object.keys(grouped).sort((a, b) => {
-    const latestA = grouped[a][0].valid_from;
-    const latestB = grouped[b][0].valid_from;
-    return new Date(latestB).getTime() - new Date(latestA).getTime();
-  });
+  async function saveEdit(row: ProductCostRow) {
+    if (!editing || saving) return;
+    setSaving(true);
 
-  function toggleExpand(asin: string) {
-    setExpandedAsins((prev) => {
-      const next = new Set(prev);
-      if (next.has(asin)) {
-        next.delete(asin);
+    try {
+      if (editing.field === "vat") {
+        await setProductVat(row.sku, parseFloat(editValue));
       } else {
-        next.add(asin);
+        const unitCost =
+          editing.field === "unit_cost"
+            ? parseFloat(editValue) || 0
+            : row.unit_cost ?? 0;
+        const prepCost =
+          editing.field === "prep_cost"
+            ? parseFloat(editValue) || 0
+            : row.prep_cost ?? 0;
+
+        if (row.asin) {
+          await setProductCost(row.asin, unitCost, prepCost);
+        }
       }
-      return next;
-    });
+      router.refresh();
+    } finally {
+      setSaving(false);
+      setEditing(null);
+      setEditValue("");
+    }
   }
 
-  function handleRefresh() {
-    router.refresh();
+  function handleKeyDown(e: React.KeyboardEvent, row: ProductCostRow) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      saveEdit(row);
+    } else if (e.key === "Escape") {
+      setEditing(null);
+      setEditValue("");
+    }
+  }
+
+  function formatMoney(value: number | null): string {
+    if (value === null) return "—";
+    return `£${value.toFixed(2)}`;
   }
 
   return (
@@ -249,14 +114,55 @@ export function CogsTable({ rows }: { rows: CogsPeriodRow[] }) {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {sortedAsins.length === 0 ? (
+        {/* Search and Filter controls */}
+        <div className="flex items-center gap-3 mb-4">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Search by product name or ASIN..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-8 text-xs h-8"
+            />
+          </div>
+          <div className="flex items-center gap-1 rounded-md border p-0.5">
+            <Button
+              variant={filter === "all" ? "secondary" : "ghost"}
+              size="sm"
+              className="h-6 px-2.5 text-[11px]"
+              onClick={() => setFilter("all")}
+            >
+              All
+            </Button>
+            <Button
+              variant={filter === "with_costs" ? "secondary" : "ghost"}
+              size="sm"
+              className="h-6 px-2.5 text-[11px]"
+              onClick={() => setFilter("with_costs")}
+            >
+              With Costs
+            </Button>
+            <Button
+              variant={filter === "missing_costs" ? "secondary" : "ghost"}
+              size="sm"
+              className="h-6 px-2.5 text-[11px]"
+              onClick={() => setFilter("missing_costs")}
+            >
+              Missing Costs
+            </Button>
+          </div>
+        </div>
+
+        {filteredRows.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <div className="rounded-full bg-muted p-3 mb-3">
               <Receipt className="h-5 w-5 text-muted-foreground" />
             </div>
-            <p className="text-sm font-medium">No cost data yet</p>
+            <p className="text-sm font-medium">No products found</p>
             <p className="text-xs text-muted-foreground mt-1">
-              Click &quot;Add Cost&quot; to add your first cost period
+              {search
+                ? "Try adjusting your search query"
+                : "No products available"}
             </p>
           </div>
         ) : (
@@ -264,111 +170,196 @@ export function CogsTable({ rows }: { rows: CogsPeriodRow[] }) {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="text-xs w-8" />
-                  <TableHead className="text-xs w-[60px]">Image</TableHead>
-                  <TableHead className="text-xs">Product / ASIN</TableHead>
+                  <TableHead className="text-xs w-[85px]">Image</TableHead>
+                  <TableHead className="text-xs">Product</TableHead>
+                  <TableHead className="text-xs">ASIN</TableHead>
                   <TableHead className="text-xs">Unit Cost</TableHead>
                   <TableHead className="text-xs">Prep Fee</TableHead>
                   <TableHead className="text-xs">Total COGS</TableHead>
-                  <TableHead className="text-xs">Valid From</TableHead>
-                  <TableHead className="text-xs">Notes</TableHead>
-                  <TableHead className="text-xs w-16">Actions</TableHead>
+                  <TableHead className="text-xs">VAT</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {sortedAsins.map((asin) => {
-                  const periods = grouped[asin];
-                  const latest = periods[0];
-                  const isExpanded = expandedAsins.has(asin);
-                  const hasHistory = periods.length > 1;
+                {filteredRows.map((row) => (
+                  <TableRow key={row.sku}>
+                    {/* Image */}
+                    <TableCell>
+                      {row.image_url ? (
+                        <Image
+                          src={row.image_url}
+                          alt={row.title ?? "Product"}
+                          width={85}
+                          height={85}
+                          className="rounded object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-[85px] w-[85px] items-center justify-center rounded bg-muted">
+                          <Warehouse className="h-5 w-5 text-muted-foreground" />
+                        </div>
+                      )}
+                    </TableCell>
 
-                  return (
-                    <Fragment key={asin}>
-                      {/* Main row - latest period */}
-                      <TableRow
-                        className={`cursor-pointer ${hasHistory ? "hover:bg-muted/40" : ""}`}
-                        onClick={() => hasHistory && toggleExpand(asin)}
+                    {/* Product title */}
+                    <TableCell>
+                      <p className="text-xs truncate max-w-[220px]">
+                        {row.title ?? "Untitled"}
+                      </p>
+                    </TableCell>
+
+                    {/* ASIN */}
+                    <TableCell>
+                      <span className="text-xs font-mono text-muted-foreground">
+                        {row.asin ?? "—"}
+                      </span>
+                    </TableCell>
+
+                    {/* Unit Cost - inline editable */}
+                    <TableCell
+                      className={`cursor-pointer ${
+                        editing?.sku === row.sku && editing?.field === "unit_cost"
+                          ? "ring-1 ring-primary rounded"
+                          : ""
+                      }`}
+                      onClick={() => {
+                        if (
+                          !(editing?.sku === row.sku && editing?.field === "unit_cost")
+                        ) {
+                          startEdit(
+                            row.sku,
+                            "unit_cost",
+                            row.unit_cost?.toString() ?? ""
+                          );
+                        }
+                      }}
+                    >
+                      {editing?.sku === row.sku && editing?.field === "unit_cost" ? (
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={editValue}
+                          onChange={(e) => setEditValue(e.target.value)}
+                          onKeyDown={(e) => handleKeyDown(e, row)}
+                          onBlur={() => saveEdit(row)}
+                          autoFocus
+                          disabled={saving}
+                          className="h-7 w-20 font-mono text-xs"
+                        />
+                      ) : (
+                        <span
+                          className={`font-mono text-xs ${
+                            row.unit_cost === null ? "text-muted-foreground" : ""
+                          }`}
+                        >
+                          {formatMoney(row.unit_cost)}
+                        </span>
+                      )}
+                    </TableCell>
+
+                    {/* Prep Fee - inline editable */}
+                    <TableCell
+                      className={`cursor-pointer ${
+                        editing?.sku === row.sku && editing?.field === "prep_cost"
+                          ? "ring-1 ring-primary rounded"
+                          : ""
+                      }`}
+                      onClick={() => {
+                        if (
+                          !(editing?.sku === row.sku && editing?.field === "prep_cost")
+                        ) {
+                          startEdit(
+                            row.sku,
+                            "prep_cost",
+                            row.prep_cost?.toString() ?? ""
+                          );
+                        }
+                      }}
+                    >
+                      {editing?.sku === row.sku && editing?.field === "prep_cost" ? (
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={editValue}
+                          onChange={(e) => setEditValue(e.target.value)}
+                          onKeyDown={(e) => handleKeyDown(e, row)}
+                          onBlur={() => saveEdit(row)}
+                          autoFocus
+                          disabled={saving}
+                          className="h-7 w-20 font-mono text-xs"
+                        />
+                      ) : (
+                        <span
+                          className={`font-mono text-xs ${
+                            row.prep_cost === null ? "text-muted-foreground" : ""
+                          }`}
+                        >
+                          {formatMoney(row.prep_cost)}
+                        </span>
+                      )}
+                    </TableCell>
+
+                    {/* Total COGS - not editable */}
+                    <TableCell>
+                      <span
+                        className={`font-mono text-xs font-semibold ${
+                          row.total_cogs === null ? "text-muted-foreground font-normal" : ""
+                        }`}
                       >
-                        <TableCell className="w-8">
-                          {hasHistory && (
-                            isExpanded ? (
-                              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                            ) : (
-                              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-                            )
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {latest.image_url ? (
-                            <Image
-                              src={latest.image_url}
-                              alt={latest.title ?? asin}
-                              width={40}
-                              height={40}
-                              className="rounded object-cover"
-                            />
-                          ) : (
-                            <div className="flex h-10 w-10 items-center justify-center rounded bg-muted">
-                              <Warehouse className="h-4 w-4 text-muted-foreground" />
-                            </div>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <div>
-                            <p className="text-xs truncate max-w-[200px]">
-                              {latest.title ?? "Untitled"}
-                            </p>
-                            <p className="text-[11px] font-mono text-muted-foreground">
-                              {asin}
-                            </p>
-                          </div>
-                        </TableCell>
-                        <TableCell className="font-mono text-xs">
-                          {formatMoney(latest.unit_cost)}
-                        </TableCell>
-                        <TableCell className="font-mono text-xs">
-                          {formatMoney(latest.prep_cost)}
-                        </TableCell>
-                        <TableCell className="font-mono text-xs font-semibold">
-                          {formatMoney(latest.total_cogs)}
-                        </TableCell>
-                        <TableCell className="text-xs">
-                          {latest.valid_from}
-                          {!latest.valid_to && (
-                            <span className="ml-1.5 text-[10px] text-green-500 font-medium">
-                              Active
-                            </span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-xs text-muted-foreground max-w-[120px] truncate">
-                          {latest.notes ?? "—"}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-6 w-6 p-0"
-                              onClick={() => toggleExpand(asin)}
-                            >
-                              <Pencil className="h-3 w-3 text-muted-foreground" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
+                        {formatMoney(row.total_cogs)}
+                      </span>
+                    </TableCell>
 
-                      {/* Expanded history rows */}
-                      {isExpanded &&
-                        periods.map((period) => (
-                          <HistoryRow
-                            key={period.id}
-                            period={period}
-                            onRefresh={handleRefresh}
-                          />
-                        ))}
-                    </Fragment>
-                  );
-                })}
+                    {/* VAT - inline editable select */}
+                    <TableCell
+                      className={`cursor-pointer ${
+                        editing?.sku === row.sku && editing?.field === "vat"
+                          ? "ring-1 ring-primary rounded"
+                          : ""
+                      }`}
+                      onClick={() => {
+                        if (
+                          !(editing?.sku === row.sku && editing?.field === "vat")
+                        ) {
+                          startEdit(row.sku, "vat", row.vat_rate.toString());
+                        }
+                      }}
+                    >
+                      {editing?.sku === row.sku && editing?.field === "vat" ? (
+                        <select
+                          value={editValue}
+                          onChange={(e) => {
+                            setEditValue(e.target.value);
+                            // Save immediately on change
+                            setSaving(true);
+                            setProductVat(row.sku, parseFloat(e.target.value))
+                              .then(() => {
+                                router.refresh();
+                              })
+                              .finally(() => {
+                                setSaving(false);
+                                setEditing(null);
+                                setEditValue("");
+                              });
+                          }}
+                          onBlur={() => {
+                            setEditing(null);
+                            setEditValue("");
+                          }}
+                          autoFocus
+                          disabled={saving}
+                          className="h-7 w-16 rounded border bg-background px-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                        >
+                          <option value="0">0%</option>
+                          <option value="5">5%</option>
+                          <option value="20">20%</option>
+                        </select>
+                      ) : (
+                        <span className="text-xs">{row.vat_rate}%</span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
           </div>
@@ -377,4 +368,3 @@ export function CogsTable({ rows }: { rows: CogsPeriodRow[] }) {
     </Card>
   );
 }
-
