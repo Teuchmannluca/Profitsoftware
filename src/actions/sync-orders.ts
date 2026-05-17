@@ -135,21 +135,22 @@ export async function syncOrders(sinceOverride?: string): Promise<{
       }
     }
 
-    // Fill in prices for Pending orders (£0) using last known price per ASIN
+    // Fill in prices for Pending orders (£0) using last known PER-UNIT price per ASIN
+    // Amazon's ItemPrice is the LINE TOTAL (price × qty), so we must normalize to per-unit
     const { data: zeroPriceItems } = await supabase
       .from("order_items")
-      .select("order_item_id, asin")
+      .select("order_item_id, asin, qty")
       .eq("item_price_gross", 0)
       .not("asin", "is", null);
 
     if (zeroPriceItems && zeroPriceItems.length > 0) {
       const uniqueAsins = [...new Set(zeroPriceItems.map((i) => i.asin))];
-      const priceMap = new Map<string, number>();
+      const perUnitPriceMap = new Map<string, number>();
 
       for (const asin of uniqueAsins) {
         const { data: lastKnown } = await supabase
           .from("order_items")
-          .select("item_price_gross")
+          .select("item_price_gross, qty")
           .eq("asin", asin)
           .gt("item_price_gross", 0)
           .order("created_at", { ascending: false })
@@ -157,17 +158,19 @@ export async function syncOrders(sinceOverride?: string): Promise<{
           .single();
 
         if (lastKnown) {
-          priceMap.set(asin, parseFloat(String(lastKnown.item_price_gross)));
+          const perUnit = parseFloat(String(lastKnown.item_price_gross)) / (lastKnown.qty ?? 1);
+          perUnitPriceMap.set(asin, perUnit);
         }
       }
 
       let pricesFilled = 0;
       for (const item of zeroPriceItems) {
-        const price = priceMap.get(item.asin);
-        if (price) {
+        const perUnit = perUnitPriceMap.get(item.asin);
+        if (perUnit) {
+          const lineTotal = perUnit * (item.qty ?? 1);
           await supabase
             .from("order_items")
-            .update({ item_price_gross: price })
+            .update({ item_price_gross: lineTotal })
             .eq("order_item_id", item.order_item_id);
           pricesFilled++;
         }
