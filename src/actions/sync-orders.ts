@@ -53,9 +53,10 @@ export async function syncOrders(sinceOverride?: string): Promise<{
       .limit(1)
       .single();
 
-    since = lastSync?.finished_at
-      ? new Date(lastSync.finished_at)
-      : new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const lastSyncDate = lastSync?.finished_at ? new Date(lastSync.finished_at) : yesterday;
+    // Always go back at least 24h to catch orders that changed status
+    since = lastSyncDate < yesterday ? lastSyncDate : yesterday;
   }
 
   console.log(`[orders-sync] Fetching orders since ${since.toISOString()}`);
