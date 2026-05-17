@@ -61,14 +61,22 @@ export function getDateRange(period: string): { from: Date; to: Date } {
 export async function getSalesMetrics(from: Date, to: Date): Promise<SalesMetrics> {
   const supabase = createServiceClient();
 
-  // Step 1: Get order IDs in the date range
-  const { data: orderRows } = await supabase
-    .from("orders")
-    .select("amazon_order_id")
-    .gte("purchase_date", from.toISOString())
-    .lte("purchase_date", to.toISOString());
-
-  const orderIds = (orderRows ?? []).map((o) => o.amazon_order_id);
+  // Step 1: Get ALL order IDs in the date range (paginate past Supabase 1000 row limit)
+  const orderIds: string[] = [];
+  let page = 0;
+  const pageSize = 1000;
+  while (true) {
+    const { data: batch } = await supabase
+      .from("orders")
+      .select("amazon_order_id")
+      .gte("purchase_date", from.toISOString())
+      .lte("purchase_date", to.toISOString())
+      .range(page * pageSize, (page + 1) * pageSize - 1);
+    if (!batch || batch.length === 0) break;
+    orderIds.push(...batch.map((o) => o.amazon_order_id));
+    if (batch.length < pageSize) break;
+    page++;
+  }
   const orderCount = orderIds.length;
 
   if (orderIds.length === 0) {

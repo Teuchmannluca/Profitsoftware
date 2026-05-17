@@ -84,13 +84,22 @@ export async function getProductInsight(asin: string): Promise<ProductInsight | 
   const primaryProduct = products[0];
   const allSkus = products.map((p) => p.sku);
 
-  // 2. Get order items for this ASIN joined with orders
-  const { data: items } = await supabase
-    .from("order_items")
-    .select(
-      "amazon_order_id, order_item_id, sku, qty, item_price_gross, item_tax, promo_discount, estimated_fees, actual_fees, estimated_profit, actual_profit, refund_status, orders!inner(amazon_order_id, purchase_date, order_status)"
-    )
-    .eq("asin", asin);
+  // 2. Get ALL order items for this ASIN (paginate past 1000 limit)
+  const items: Array<Record<string, unknown>> = [];
+  let itemPage = 0;
+  while (true) {
+    const { data: batch } = await supabase
+      .from("order_items")
+      .select(
+        "amazon_order_id, order_item_id, sku, qty, item_price_gross, item_tax, promo_discount, estimated_fees, actual_fees, estimated_profit, actual_profit, refund_status, orders!inner(amazon_order_id, purchase_date, order_status)"
+      )
+      .eq("asin", asin)
+      .range(itemPage * 1000, (itemPage + 1) * 1000 - 1);
+    if (!batch || batch.length === 0) break;
+    items.push(...batch);
+    if (batch.length < 1000) break;
+    itemPage++;
+  }
 
   // 3. Get active COGS
   const { data: activeCogs } = await supabase
