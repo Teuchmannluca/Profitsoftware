@@ -5,6 +5,7 @@ export interface SalesMetrics {
   vatCollected: number;
   promoDiscount: number;
   netRevenue: number;
+  totalFees: number;
   totalCogs: number;
   estimatedProfit: number;
   unitsSold: number;
@@ -64,7 +65,7 @@ export async function getSalesMetrics(from: Date, to: Date): Promise<SalesMetric
   const { data: items } = await supabase
     .from("order_items")
     .select(
-      "asin, qty, item_price_gross, item_tax, promo_discount, orders!inner(amazon_order_id, purchase_date)"
+      "asin, qty, item_price_gross, item_tax, promo_discount, estimated_fees, actual_fees, orders!inner(amazon_order_id, purchase_date)"
     )
     .gte("orders.purchase_date", from.toISOString())
     .lte("orders.purchase_date", to.toISOString());
@@ -92,6 +93,7 @@ export async function getSalesMetrics(from: Date, to: Date): Promise<SalesMetric
   let promoDiscount = 0;
   let unitsSold = 0;
   let totalCogs = 0;
+  let totalFees = 0;
 
   for (const item of items ?? []) {
     grossSales += parseFloat(String(item.item_price_gross ?? "0"));
@@ -101,10 +103,15 @@ export async function getSalesMetrics(from: Date, to: Date): Promise<SalesMetric
 
     const unitCogs = cogsMap.get(item.asin) ?? 0;
     totalCogs += unitCogs * (item.qty ?? 0);
+
+    // Fees: prefer actual_fees over estimated_fees, per-unit * qty
+    const fees = (item.actual_fees as Record<string, unknown>) ?? (item.estimated_fees as Record<string, unknown>);
+    const perUnitFee = parseFloat(String(fees?.totalFees ?? "0"));
+    totalFees += perUnitFee * (item.qty ?? 0);
   }
 
   const netRevenue = grossSales - vatCollected - promoDiscount;
-  const estimatedProfit = netRevenue - totalCogs;
+  const estimatedProfit = netRevenue - totalFees - totalCogs;
   const margin = netRevenue > 0 ? (estimatedProfit / netRevenue) * 100 : 0;
 
   return {
@@ -112,6 +119,7 @@ export async function getSalesMetrics(from: Date, to: Date): Promise<SalesMetric
     vatCollected,
     promoDiscount,
     netRevenue,
+    totalFees,
     totalCogs,
     estimatedProfit,
     unitsSold,
