@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   ShoppingCart,
+  Receipt,
   PoundSterling,
   Megaphone,
   Warehouse,
@@ -19,6 +20,7 @@ import { useRouter } from "next/navigation";
 const navItems = [
   { label: "Dashboard", href: "/", icon: LayoutDashboard },
   { label: "Orders", href: "/orders", icon: ShoppingCart },
+  { label: "Costs", href: "/costs", icon: Receipt },
   { label: "P&L", href: "/pnl", icon: PoundSterling, soon: true },
   { label: "PPC / Ads", href: "/ppc", icon: Megaphone, soon: true },
   { label: "Inventory", href: "/inventory", icon: Warehouse },
