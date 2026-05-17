@@ -13,6 +13,8 @@ import {
   Star,
   Settings,
   LogOut,
+  BarChart3,
+  Package,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
@@ -21,6 +23,7 @@ const navItems = [
   { label: "Dashboard", href: "/", icon: LayoutDashboard },
   { label: "Orders", href: "/orders", icon: ShoppingCart },
   { label: "Costs", href: "/costs", icon: Receipt },
+  { label: "Products", href: "/product", icon: Package },
   { label: "P&L", href: "/pnl", icon: PoundSterling, soon: true },
   { label: "PPC / Ads", href: "/ppc", icon: Megaphone, soon: true },
   { label: "Inventory", href: "/inventory", icon: Warehouse },
@@ -46,38 +49,48 @@ export function Sidebar({ email }: { email: string }) {
   }
 
   return (
-    <aside className="fixed inset-y-0 left-0 z-50 flex w-[220px] flex-col bg-sidebar-bg border-r border-white/[0.06]">
-      <div className="flex h-14 items-center gap-2.5 px-5">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 shadow-lg shadow-indigo-500/25">
-          <span className="text-[11px] font-bold text-white">PT</span>
+    <aside className="fixed inset-y-0 left-0 z-50 flex w-[240px] flex-col bg-sidebar-bg border-r border-sidebar-border">
+      {/* Logo */}
+      <div className="flex h-16 items-center gap-3 px-5">
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-indigo shadow-lg shadow-indigo-500/20">
+          <BarChart3 className="h-4 w-4 text-white" />
         </div>
         <div>
-          <p className="text-[13px] font-semibold text-white">Profit Tracker</p>
-          <p className="text-[10px] text-white/40">Amazon UK</p>
+          <p className="text-sm font-bold tracking-tight text-foreground">ProfitFlow</p>
+          <p className="text-[10px] font-medium text-muted-foreground tracking-wide uppercase">Amazon UK</p>
         </div>
       </div>
 
+      {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-0.5">
+        <p className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
+          Main
+        </p>
         {navItems.map((item) => {
           const isActive = pathname === item.href;
           return (
             <Link
               key={item.href}
               href={item.soon ? "#" : item.href}
-              className={`group flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-all duration-150 ${
+              className={`group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-medium transition-all duration-150 ${
                 isActive
-                  ? "bg-white/[0.1] text-white shadow-sm"
-                  : "text-white/50 hover:bg-white/[0.06] hover:text-white/80"
-              } ${item.soon ? "cursor-default" : ""}`}
+                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+              } ${item.soon ? "cursor-default opacity-60" : ""}`}
             >
+              {isActive && (
+                <span className="absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full bg-gradient-indigo" />
+              )}
               <item.icon
-                className={`h-4 w-4 ${
-                  isActive ? "text-indigo-400" : "text-white/40 group-hover:text-white/60"
+                className={`h-4 w-4 transition-colors ${
+                  isActive
+                    ? "text-indigo-500"
+                    : "text-muted-foreground/50 group-hover:text-muted-foreground"
                 }`}
               />
               {item.label}
               {item.soon && (
-                <span className="ml-auto text-[9px] uppercase tracking-wider text-white/25 font-semibold">
+                <span className="ml-auto text-[9px] font-bold uppercase tracking-wider text-muted-foreground/40 bg-muted px-1.5 py-0.5 rounded-md">
                   Soon
                 </span>
               )}
@@ -86,27 +99,27 @@ export function Sidebar({ email }: { email: string }) {
         })}
       </nav>
 
-      <div className="border-t border-white/[0.06] p-3 space-y-0.5">
+      {/* Bottom section */}
+      <div className="border-t border-sidebar-border p-3 space-y-0.5">
         <Link
           href="/settings"
-          className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium text-white/50 hover:bg-white/[0.06] hover:text-white/80 transition-all duration-150"
+          className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-medium text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground transition-all duration-150"
         >
-          <Settings className="h-4 w-4 text-white/40" />
+          <Settings className="h-4 w-4 text-muted-foreground/50" />
           Settings
         </Link>
 
-        <div className="flex items-center gap-2.5 px-3 py-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-indigo-400/20 to-purple-400/20 ring-1 ring-white/10">
-            <span className="text-[10px] font-semibold text-indigo-300">
-              {initials}
-            </span>
+        <div className="flex items-center gap-3 rounded-xl px-3 py-2.5 mt-1 bg-muted/50">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-indigo shadow-md shadow-indigo-500/15">
+            <span className="text-[11px] font-bold text-white">{initials}</span>
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-[11px] text-white/60 truncate">{email}</p>
+            <p className="text-[11px] font-medium text-foreground truncate">{email}</p>
           </div>
           <button
             onClick={handleSignOut}
-            className="rounded-md p-1 text-white/30 hover:bg-white/[0.06] hover:text-white/60 transition-colors"
+            className="rounded-lg p-1.5 text-muted-foreground/50 hover:bg-rose-50 hover:text-rose-500 transition-colors"
+            title="Sign out"
           >
             <LogOut className="h-3.5 w-3.5" />
           </button>
