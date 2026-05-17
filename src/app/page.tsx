@@ -170,10 +170,10 @@ export default async function DashboardPage({
               shadow="shadow-amber-soft"
             />
             <CircleGauge
-              value={totalOrders}
-              max={Math.max(totalOrders, 1)}
+              value={metrics.unitsSold}
+              max={Math.max(metrics.unitsSold, 1)}
               label="Units Sold"
-              formattedValue={String(totalItems)}
+              formattedValue={String(metrics.unitsSold)}
               subtitle="sold"
               color="#8b5cf6"
               gradient="violet"
@@ -185,7 +185,7 @@ export default async function DashboardPage({
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
             <StatBox
               label="Orders"
-              value={totalOrders}
+              value={metrics.orderCount}
               iconName="ShoppingBag"
               gradient="indigo"
             />
