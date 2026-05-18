@@ -7,7 +7,7 @@ import { SyncLogCard } from "@/components/sync-log-card";
 import { SyncButton } from "@/components/sync-button";
 import { CircleGauge } from "@/components/circle-gauge";
 import { PageHeader } from "@/components/page-header";
-import { PeriodFilterDropdown } from "@/components/period-filter-dropdown";
+import { PeriodFilter } from "@/components/period-filter";
 import { getDateRange, getSalesMetrics } from "@/lib/queries/sales";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrendingUp } from "lucide-react";
@@ -122,9 +122,9 @@ export default async function DashboardPage({
           item_price_gross: parseFloat(String(item.item_price_gross ?? "0")),
           item_tax: parseFloat(String(item.item_tax ?? "0")),
           promo_discount: parseFloat(String(item.promo_discount ?? "0")),
-          estimated_profit: item.estimated_profit
-            ? parseFloat(String(item.estimated_profit))
-            : null,
+          estimated_profit: item.estimated_profit == null
+            ? null
+            : parseFloat(String(item.estimated_profit)),
         })) ?? [],
     })) ?? [];
 
@@ -143,7 +143,7 @@ export default async function DashboardPage({
     };
     existing.units += item.qty ?? 0;
     existing.sales += price;
-    existing.profit += item.estimated_profit ? parseFloat(String(item.estimated_profit)) : price;
+    existing.profit += item.estimated_profit == null ? 0 : parseFloat(String(item.estimated_profit));
     asinAgg.set(asin, existing);
   }
   const topSellers = [...asinAgg.values()]
@@ -160,7 +160,7 @@ export default async function DashboardPage({
           subtitle="Your Amazon Business Performance"
           action={
             <div className="flex items-center gap-3">
-              <PeriodFilterDropdown />
+              <PeriodFilter />
               <SyncButton />
             </div>
           }
@@ -190,11 +190,11 @@ export default async function DashboardPage({
               shadow="shadow-sky-soft"
             />
             <CircleGauge
-              value={metrics.margin}
-              max={100}
+              value={metrics.roi}
+              max={Math.max(metrics.roi, 100)}
               label="ROI"
-              formattedValue={`${metrics.margin.toFixed(1)}%`}
-              subtitle="return"
+              formattedValue={`${metrics.roi.toFixed(1)}%`}
+              subtitle="return on investment"
               color="#f59e0b"
               gradient="amber"
               shadow="shadow-amber-soft"
@@ -292,7 +292,10 @@ export default async function DashboardPage({
                             <a href="/orders" className="text-[11px] text-primary font-medium hover:underline">All orders →</a>
                           </div>
                           <p className="text-[13px] font-bold truncate mt-2">{latestItem.title ?? "Unknown Product"}</p>
-                          <p className="text-[10px] text-muted-foreground font-mono mt-0.5">{latestItem.asin} · {latestItem.sku}</p>
+                          <p className="text-[10px] text-muted-foreground font-mono mt-0.5">
+                            <a href={`https://www.amazon.co.uk/dp/${latestItem.asin}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{latestItem.asin}</a>
+                            {" · "}{latestItem.sku}
+                          </p>
                           <div className="flex items-center gap-4 mt-3">
                             <div className="text-center">
                               <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Qty</p>

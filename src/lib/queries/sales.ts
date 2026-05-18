@@ -11,6 +11,7 @@ export interface SalesMetrics {
   unitsSold: number;
   orderCount: number;
   margin: number;
+  roi: number;
 }
 
 export function getDateRange(period: string): { from: Date; to: Date } {
@@ -58,6 +59,24 @@ export function getDateRange(period: string): { from: Date; to: Date } {
   }
 }
 
+type CogsPeriod = {
+  asin: string;
+  total_cogs: unknown;
+  valid_from: string;
+  valid_to: string | null;
+};
+
+export function getCogsForDate(
+  periods: Array<{ totalCogs: number; validFrom: string; validTo: string | null }>,
+  purchaseDate: string
+) {
+  const orderDate = purchaseDate.slice(0, 10);
+  const period = periods.find(
+    (p) => p.validFrom <= orderDate && (!p.validTo || p.validTo >= orderDate)
+  );
+  return period?.totalCogs ?? 0;
+}
+
 export async function getSalesMetrics(from: Date, to: Date): Promise<SalesMetrics> {
   const supabase = createServiceClient();
 
@@ -83,7 +102,7 @@ export async function getSalesMetrics(from: Date, to: Date): Promise<SalesMetric
     return {
       grossSales: 0, vatCollected: 0, promoDiscount: 0, netRevenue: 0,
       totalFees: 0, totalCogs: 0, estimatedProfit: 0, unitsSold: 0,
-      orderCount: 0, margin: 0,
+      orderCount: 0, margin: 0, roi: 0,
     };
   }
 
@@ -93,20 +112,32 @@ export async function getSalesMetrics(from: Date, to: Date): Promise<SalesMetric
     const chunk = orderIds.slice(i, i + 200);
     const { data: items } = await supabase
       .from("order_items")
-      .select("asin, qty, item_price_gross, item_tax, shipping_price, promo_discount, estimated_fees, actual_fees")
+      .select("asin, qty, item_price_gross, item_tax, shipping_price, promo_discount, estimated_fees, actual_fees, orders!inner(purchase_date)")
       .in("amazon_order_id", chunk);
     allItems.push(...(items ?? []));
   }
 
-  // Step 3: Get active COGS
+  // Step 3: Get COGS periods so historical ranges use the cost active on purchase date.
   const { data: cogs } = await supabase
     .from("cogs_periods")
-    .select("asin, total_cogs")
-    .is("valid_to", null);
+    .select("asin, total_cogs, valid_from, valid_to")
+    .lte("valid_from", to.toISOString().slice(0, 10))
+    .or(`valid_to.is.null,valid_to.gte.${from.toISOString().slice(0, 10)}`)
+    .order("valid_from", { ascending: false });
 
-  const cogsMap = new Map(
-    cogs?.map((c) => [c.asin, parseFloat(String(c.total_cogs ?? "0"))]) ?? []
-  );
+  const cogsMap = new Map<
+    string,
+    Array<{ totalCogs: number; validFrom: string; validTo: string | null }>
+  >();
+  for (const c of (cogs ?? []) as CogsPeriod[]) {
+    const periods = cogsMap.get(c.asin) ?? [];
+    periods.push({
+      totalCogs: parseFloat(String(c.total_cogs ?? "0")),
+      validFrom: c.valid_from,
+      validTo: c.valid_to,
+    });
+    cogsMap.set(c.asin, periods);
+  }
 
   // Step 4: Aggregate
   let grossSales = 0;
@@ -128,7 +159,16 @@ export async function getSalesMetrics(from: Date, to: Date): Promise<SalesMetric
     promoDiscount += parseFloat(String(item.promo_discount ?? "0"));
     unitsSold += qty;
 
-    const unitCogs = cogsMap.get(item.asin as string) ?? 0;
+    const ordersData = item.orders as unknown as
+      | { purchase_date: string }
+      | Array<{ purchase_date: string }>
+      | null;
+    const purchaseDate = Array.isArray(ordersData)
+      ? ordersData[0]?.purchase_date
+      : ordersData?.purchase_date;
+    const unitCogs = purchaseDate
+      ? getCogsForDate(cogsMap.get(item.asin as string) ?? [], purchaseDate)
+      : 0;
     totalCogs += unitCogs * qty;
 
     const fees = (item.actual_fees ?? item.estimated_fees) as Record<string, unknown> | null;
@@ -164,6 +204,8 @@ export async function getSalesMetrics(from: Date, to: Date): Promise<SalesMetric
 
   const estimatedProfit = netRevenue - adjustedFees - totalCogs;
   const margin = netRevenue > 0 ? (estimatedProfit / netRevenue) * 100 : 0;
+  const totalInvestment = adjustedFees + totalCogs;
+  const roi = totalInvestment > 0 ? (estimatedProfit / totalInvestment) * 100 : 0;
 
   return {
     grossSales,
@@ -176,5 +218,6 @@ export async function getSalesMetrics(from: Date, to: Date): Promise<SalesMetric
     unitsSold,
     orderCount,
     margin,
+    roi,
   };
 }
