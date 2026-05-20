@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { RefreshCw } from "lucide-react";
 import { syncOrders } from "@/actions/sync-orders-action";
 import { syncFinances } from "@/actions/sync-finances-action";
+import { syncInboundShipments } from "@/actions/sync-inbound-shipments-action";
 
 export function SyncButton() {
   const [loading, setLoading] = useState(false);
@@ -15,6 +16,7 @@ export function SyncButton() {
     setLoading(true);
     await syncOrders();
     await syncFinances();
+    await syncInboundShipments();
     setLoading(false);
     router.refresh();
   }
