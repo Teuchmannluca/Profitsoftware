@@ -17,6 +17,10 @@ import {
   Search,
   Briefcase,
   Crown,
+  Clock,
+  CheckCircle2,
+  XCircle,
+  Timer,
 } from "lucide-react";
 import { useState, useMemo } from "react";
 
@@ -77,23 +81,48 @@ function countryFlag(country: string | null): string {
   return flags[country] ?? "🏳️";
 }
 
+const STATUS_FILTERS = [
+  { key: "all", label: "All" },
+  { key: "Pending", label: "Pending" },
+  { key: "Shipped", label: "Shipped" },
+  { key: "Unshipped", label: "Unshipped" },
+  { key: "Cancelled", label: "Cancelled" },
+] as const;
+
 export function OrderDetails({ orders }: { orders: OrderWithItems[] }) {
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+
+  const statusCounts = useMemo(() => {
+    const counts: Record<string, number> = { all: orders.length };
+    for (const o of orders) {
+      counts[o.order_status] = (counts[o.order_status] ?? 0) + 1;
+    }
+    return counts;
+  }, [orders]);
 
   const filtered = useMemo(() => {
-    if (!search) return orders;
-    const q = search.toLowerCase();
-    return orders.filter(
-      (o) =>
-        o.amazon_order_id.toLowerCase().includes(q) ||
-        o.items.some(
-          (i) =>
-            i.title?.toLowerCase().includes(q) ||
-            i.asin?.toLowerCase().includes(q) ||
-            i.sku?.toLowerCase().includes(q)
-        )
-    );
-  }, [orders, search]);
+    let result = orders;
+    if (statusFilter !== "all") {
+      result = result.filter((o) => o.order_status === statusFilter);
+    }
+    if (search) {
+      const q = search.trim().toLowerCase();
+      if (q) {
+        result = result.filter(
+          (o) =>
+            o.amazon_order_id.toLowerCase().includes(q) ||
+            o.items.some(
+              (i) =>
+                (i.title ?? "").toLowerCase().includes(q) ||
+                (i.asin ?? "").toLowerCase().includes(q) ||
+                (i.sku ?? "").toLowerCase().includes(q)
+            )
+        );
+      }
+    }
+    return result;
+  }, [orders, search, statusFilter]);
 
   const totalItems = filtered.reduce((sum, o) => sum + o.items.length, 0);
 
@@ -156,6 +185,38 @@ export function OrderDetails({ orders }: { orders: OrderWithItems[] }) {
           />
         </div>
 
+        {/* Status filter pills */}
+        <div className="flex items-center gap-1.5 mt-3">
+          {STATUS_FILTERS.map((f) => {
+            const count = statusCounts[f.key] ?? 0;
+            if (f.key !== "all" && count === 0) return null;
+            const isActive = statusFilter === f.key;
+            const colorMap: Record<string, string> = {
+              all: isActive ? "bg-foreground text-background" : "",
+              Pending: isActive ? "bg-amber-600 text-white dark:bg-amber-500" : "text-amber-700 dark:text-amber-400",
+              Shipped: isActive ? "bg-emerald-600 text-white dark:bg-emerald-500" : "text-emerald-700 dark:text-emerald-400",
+              Unshipped: isActive ? "bg-sky-600 text-white dark:bg-sky-500" : "text-sky-700 dark:text-sky-400",
+              Cancelled: isActive ? "bg-rose-600 text-white dark:bg-rose-500" : "text-rose-700 dark:text-rose-400",
+            };
+            return (
+              <button
+                key={f.key}
+                onClick={() => setStatusFilter(f.key)}
+                className={`inline-flex items-center gap-1.5 h-7 px-3 text-[11px] font-semibold rounded-lg transition-all duration-150 ${
+                  isActive
+                    ? `${colorMap[f.key]} shadow-sm`
+                    : `${colorMap[f.key]} bg-muted/60 hover:bg-muted`
+                }`}
+              >
+                {f.label}
+                <span className={`text-[10px] font-mono ${isActive ? "opacity-80" : "opacity-60"}`}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
         {/* Grand totals bar */}
         {orders.length > 0 && (
           <div className="flex items-center gap-4 mt-3 pt-3 border-t border-border/40">
@@ -215,10 +276,21 @@ export function OrderDetails({ orders }: { orders: OrderWithItems[] }) {
               );
               const orderQty = order.items.reduce((sum, i) => sum + i.qty, 0);
 
+              const isPending = order.order_status === "Pending";
+              const isShipped = order.order_status === "Shipped";
+              const isCancelled = order.order_status === "Cancelled";
+              const borderColor = isPending
+                ? "border-l-amber-500"
+                : isShipped
+                  ? "border-l-emerald-500"
+                  : isCancelled
+                    ? "border-l-rose-500"
+                    : "border-l-sky-500";
+
               return (
                 <div
                   key={order.amazon_order_id}
-                  className="p-4 hover:bg-muted/20 transition-colors"
+                  className={`p-4 hover:bg-muted/20 transition-all duration-200 border-l-[3px] ${borderColor}`}
                 >
                   {/* Order header */}
                   <div className="flex items-center justify-between mb-3">
@@ -226,7 +298,24 @@ export function OrderDetails({ orders }: { orders: OrderWithItems[] }) {
                       <span className="font-mono text-xs font-semibold text-foreground bg-muted px-2 py-0.5 rounded-md">
                         {order.amazon_order_id}
                       </span>
-                      <StatusBadge status={order.order_status} />
+                      {isPending ? (
+                        <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950 px-2.5 py-1 rounded-full ring-1 ring-amber-600/20 dark:ring-amber-400/20">
+                          <Clock className="h-3 w-3 animate-pulse" />
+                          Pending
+                        </span>
+                      ) : isShipped ? (
+                        <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950 px-2.5 py-1 rounded-full ring-1 ring-emerald-600/20 dark:ring-emerald-400/20">
+                          <CheckCircle2 className="h-3 w-3" />
+                          Shipped
+                        </span>
+                      ) : isCancelled ? (
+                        <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-950 px-2.5 py-1 rounded-full ring-1 ring-rose-600/20 dark:ring-rose-400/20">
+                          <XCircle className="h-3 w-3" />
+                          Cancelled
+                        </span>
+                      ) : (
+                        <StatusBadge status={order.order_status} />
+                      )}
                       <StatusBadge
                         status={order.fulfillment_channel === "AFN" ? "FBA" : "FBM"}
                       />
@@ -240,6 +329,12 @@ export function OrderDetails({ orders }: { orders: OrderWithItems[] }) {
                         <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-sky-700 dark:text-sky-400 bg-sky-50 dark:bg-sky-950 px-2 py-0.5 rounded-full ring-1 ring-sky-600/15 dark:ring-sky-400/15">
                           <Crown className="h-2.5 w-2.5" />
                           Prime
+                        </span>
+                      )}
+                      {isPending && orderGross > 0 && (
+                        <span className="inline-flex items-center gap-1 text-[9px] font-semibold text-amber-600 dark:text-amber-500">
+                          <Timer className="h-2.5 w-2.5" />
+                          Estimated
                         </span>
                       )}
                       <span className="text-[11px] text-muted-foreground flex items-center gap-1">
@@ -263,15 +358,15 @@ export function OrderDetails({ orders }: { orders: OrderWithItems[] }) {
                   <div className="flex items-center gap-4 mb-3 px-2">
                     <div className="flex items-center gap-1">
                       <Tag className="h-3 w-3 text-sky-500" />
-                      <span className="text-[11px] font-mono font-semibold text-foreground">
-                        {formatMoney(orderGross)}
+                      <span className={`text-[11px] font-mono font-semibold ${isPending && orderGross === 0 ? "text-muted-foreground" : "text-foreground"}`}>
+                        {orderGross === 0 && isPending ? "Awaiting" : formatMoney(orderGross)}
                       </span>
                       <span className="text-[10px] text-muted-foreground">gross</span>
                     </div>
                     <div className="flex items-center gap-1">
                       <Scale className="h-3 w-3 text-indigo-500" />
-                      <span className="text-[11px] font-mono font-semibold text-foreground">
-                        {formatMoney(orderNet)}
+                      <span className={`text-[11px] font-mono font-semibold ${isPending && orderNet === 0 ? "text-muted-foreground" : "text-foreground"}`}>
+                        {orderNet === 0 && isPending ? "Awaiting" : formatMoney(orderNet)}
                       </span>
                       <span className="text-[10px] text-muted-foreground">net</span>
                     </div>
@@ -279,17 +374,21 @@ export function OrderDetails({ orders }: { orders: OrderWithItems[] }) {
                       <PiggyBank className="h-3 w-3 text-emerald-500" />
                       <span
                         className={`text-[11px] font-mono font-semibold ${
-                          orderProfit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
+                          isPending && orderProfit === 0
+                            ? "text-muted-foreground"
+                            : orderProfit >= 0
+                              ? "text-emerald-600 dark:text-emerald-400"
+                              : "text-rose-600 dark:text-rose-400"
                         }`}
                       >
-                        {formatMoney(orderProfit)}
+                        {orderProfit === 0 && isPending ? "Awaiting" : formatMoney(orderProfit)}
                       </span>
                       <span className="text-[10px] text-muted-foreground">profit</span>
                     </div>
                     <div className="flex items-center gap-1">
                       <Package className="h-3 w-3 text-violet-500" />
-                      <span className="text-[11px] font-mono font-semibold text-foreground">
-                        {orderQty}
+                      <span className={`text-[11px] font-mono font-semibold ${isPending && orderQty === 0 ? "text-muted-foreground" : "text-foreground"}`}>
+                        {orderQty === 0 && isPending ? "—" : orderQty}
                       </span>
                       <span className="text-[10px] text-muted-foreground">units</span>
                     </div>

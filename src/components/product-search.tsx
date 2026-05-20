@@ -12,10 +12,10 @@ export function ProductSearch({ products }: { products: ProductCard[] }) {
   const [query, setQuery] = useState("");
 
   const filtered = products.filter((p) => {
-    if (!query) return true;
-    const q = query.toLowerCase();
+    const q = query.trim().toLowerCase();
+    if (!q) return true;
     return (
-      (p.title?.toLowerCase().includes(q) ?? false) ||
+      (p.title ?? "").toLowerCase().includes(q) ||
       p.asin.toLowerCase().includes(q) ||
       p.sku.toLowerCase().includes(q)
     );

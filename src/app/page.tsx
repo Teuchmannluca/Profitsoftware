@@ -312,12 +312,12 @@ export default async function DashboardPage({
                           <Image
                             src={latestItem.image_url}
                             alt={latestItem.title ?? latestItem.sku}
-                            width={100}
-                            height={100}
+                            width={140}
+                            height={140}
                             className="rounded-2xl object-cover ring-1 ring-border/50 shrink-0"
                           />
                         ) : (
-                          <div className="h-[100px] w-[100px] rounded-2xl bg-muted shrink-0" />
+                          <div className="h-[140px] w-[140px] rounded-2xl bg-muted shrink-0" />
                         )}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between mb-1">

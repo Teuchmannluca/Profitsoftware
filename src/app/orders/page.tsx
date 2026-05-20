@@ -48,29 +48,42 @@ export default async function OrdersPage({
 
   const supabase = createServiceClient();
 
-  // Fetch orders
-  const { data: rawOrders } = await supabase
-    .from("orders")
-    .select(
-      "amazon_order_id, purchase_date, order_status, fulfillment_channel, ship_country, ship_postcode, last_updated, raw"
-    )
-    .gte("purchase_date", from.toISOString())
-    .lte("purchase_date", to.toISOString())
-    .order("purchase_date", { ascending: false })
-    .limit(50);
+  // Fetch ALL orders in the date range (paginate past Supabase 1000-row limit)
+  const rawOrders: { amazon_order_id: string; purchase_date: string; order_status: string; fulfillment_channel: string; ship_country: string | null; ship_postcode: string | null; last_updated: string; raw: unknown }[] = [];
+  {
+    let page = 0;
+    const pageSize = 1000;
+    while (true) {
+      const { data: batch } = await supabase
+        .from("orders")
+        .select(
+          "amazon_order_id, purchase_date, order_status, fulfillment_channel, ship_country, ship_postcode, last_updated, raw"
+        )
+        .gte("purchase_date", from.toISOString())
+        .lte("purchase_date", to.toISOString())
+        .order("purchase_date", { ascending: false })
+        .range(page * pageSize, (page + 1) * pageSize - 1);
+      if (!batch || batch.length === 0) break;
+      rawOrders.push(...batch);
+      if (batch.length < pageSize) break;
+      page++;
+    }
+  }
 
-  // Fetch order items with more details
-  const orderIds = rawOrders?.map((o) => o.amazon_order_id) ?? [];
-
-  const { data: orderItems } =
-    orderIds.length > 0
-      ? await supabase
-          .from("order_items")
-          .select(
-            "amazon_order_id, sku, asin, qty, item_price_gross, item_tax, shipping_price, promo_discount, estimated_profit, estimated_fees, actual_fees, actual_profit, cogs_snapshot, refund_status"
-          )
-          .in("amazon_order_id", orderIds)
-      : { data: [] };
+  // Fetch order items for all orders (in chunks to avoid URL length limits)
+  const orderIds = rawOrders.map((o) => o.amazon_order_id);
+  const allOrderItems: { amazon_order_id: string; sku: string; asin: string | null; qty: number; item_price_gross: number; item_tax: number; shipping_price: number; promo_discount: number; estimated_profit: number | null; estimated_fees: unknown; actual_fees: unknown; actual_profit: number | null; cogs_snapshot: number | null; refund_status: string | null }[] = [];
+  for (let i = 0; i < orderIds.length; i += 200) {
+    const chunk = orderIds.slice(i, i + 200);
+    const { data: items } = await supabase
+      .from("order_items")
+      .select(
+        "amazon_order_id, sku, asin, qty, item_price_gross, item_tax, shipping_price, promo_discount, estimated_profit, estimated_fees, actual_fees, actual_profit, cogs_snapshot, refund_status"
+      )
+      .in("amazon_order_id", chunk);
+    allOrderItems.push(...(items ?? []));
+  }
+  const orderItems = allOrderItems as typeof allOrderItems;
 
   // Fetch product images/titles
   const skus = [...new Set(orderItems?.map((i) => i.sku).filter(Boolean) ?? [])];

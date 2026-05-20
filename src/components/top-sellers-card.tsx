@@ -123,12 +123,12 @@ export function TopSellersCard({
                             <Image
                               src={item.image_url}
                               alt={item.title ?? item.sku}
-                              width={40}
-                              height={40}
-                              className="rounded-lg object-cover ring-1 ring-border/50"
+                              width={56}
+                              height={56}
+                              className="rounded-xl object-cover ring-1 ring-border/50"
                             />
                           ) : (
-                            <div className="h-10 w-10 rounded-lg bg-muted" />
+                            <div className="h-14 w-14 rounded-xl bg-muted" />
                           )}
                           <div className="min-w-0">
                             <p className="text-xs font-medium truncate max-w-[200px]">
