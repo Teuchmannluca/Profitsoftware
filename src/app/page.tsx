@@ -52,6 +52,8 @@ export default async function DashboardPage({
     { data: rawOrders },
     { data: syncLogs },
     { data: inventorySnaps },
+    { data: refundRows },
+    { data: reimbursementRows },
   ] = await Promise.all([
     supabase
       .from("orders")
@@ -83,7 +85,20 @@ export default async function DashboardPage({
           .select("sku, afn_fulfillable, afn_reserved, afn_inbound")
           .eq("date", latestSnapshotRow.date)
       : Promise.resolve({ data: [] as { sku: string; afn_fulfillable: number; afn_reserved: number; afn_inbound: number }[] }),
+    supabase
+      .from("returns")
+      .select("refunded_amount")
+      .gte("return_request_date", from.toISOString())
+      .lte("return_request_date", to.toISOString()),
+    supabase
+      .from("reimbursements")
+      .select("amount")
+      .gte("event_date", from.toISOString().slice(0, 10))
+      .lte("event_date", to.toISOString().slice(0, 10)),
   ]);
+
+  const totalRefunded = (refundRows ?? []).reduce((sum, r) => sum + (r.refunded_amount ?? 0), 0);
+  const totalReimbursed = (reimbursementRows ?? []).reduce((sum, r) => sum + (r.amount ?? 0), 0);
 
   const stockMap = new Map<string, { fulfillable: number; reserved: number; inbound: number }>();
   for (const snap of inventorySnaps ?? []) {
@@ -253,7 +268,7 @@ export default async function DashboardPage({
             />
             <StatBox
               label="Refunds"
-              value="£0.00"
+              value={`£${totalRefunded.toFixed(2)}`}
               iconName="RotateCcw"
               gradient="rose"
             />
@@ -265,7 +280,7 @@ export default async function DashboardPage({
             />
             <StatBox
               label="Reimbursements"
-              value="£0.00"
+              value={`£${totalReimbursed.toFixed(2)}`}
               iconName="Wallet"
               gradient="emerald"
             />

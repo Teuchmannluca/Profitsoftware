@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/sidebar";
 import { StatBox } from "@/components/stat-card";
 import { ReturnsTable } from "@/components/returns-table";
+import { ReimbursementsTable } from "@/components/reimbursements-table";
 import { SyncReturnsButton } from "@/components/sync-returns-button";
 import { PeriodFilter } from "@/components/period-filter";
 import { PageHeader } from "@/components/page-header";
@@ -32,43 +33,47 @@ export default async function ReimbursementsPage({
 
   const supabase = createServiceClient();
 
-  // Fetch returns for the period
-  const { data: returns } = await supabase
-    .from("returns")
-    .select(
-      "id, amazon_order_id, asin, sku, item_name, return_quantity, return_reason, return_request_date, refunded_amount, return_status, resolution, in_policy"
-    )
-    .gte("return_request_date", from.toISOString())
-    .lte("return_request_date", to.toISOString())
-    .order("return_request_date", { ascending: false });
+  const [{ data: returns }, { data: reimbursements }, { count: orderCount }] =
+    await Promise.all([
+      supabase
+        .from("returns")
+        .select(
+          "id, amazon_order_id, asin, sku, item_name, return_quantity, return_reason, return_request_date, refunded_amount, return_status, resolution, in_policy"
+        )
+        .gte("return_request_date", from.toISOString())
+        .lte("return_request_date", to.toISOString())
+        .order("return_request_date", { ascending: false }),
+      supabase
+        .from("reimbursements")
+        .select(
+          "id, amazon_order_id, asin, sku, reason, quantity, amount, currency, status, claim_id, event_date, source_type"
+        )
+        .gte("event_date", from.toISOString().slice(0, 10))
+        .lte("event_date", to.toISOString().slice(0, 10))
+        .order("event_date", { ascending: false }),
+      supabase
+        .from("orders")
+        .select("amazon_order_id", { count: "exact", head: true })
+        .gte("purchase_date", from.toISOString())
+        .lte("purchase_date", to.toISOString()),
+    ]);
 
   const returnRows = returns ?? [];
+  const reimbursementRows = reimbursements ?? [];
 
-  // KPI calculations
   const totalReturns = returnRows.length;
-
   const totalRefunded = returnRows.reduce(
     (sum, r) => sum + (r.refunded_amount ?? 0),
     0
   );
-
-  // Fetch total order count for return rate
-  const { count: orderCount } = await supabase
-    .from("orders")
-    .select("amazon_order_id", { count: "exact", head: true })
-    .gte("purchase_date", from.toISOString())
-    .lte("purchase_date", to.toISOString());
-
+  const totalReimbursed = reimbursementRows.reduce(
+    (sum, r) => sum + (r.amount ?? 0),
+    0
+  );
   const returnRate =
     orderCount && orderCount > 0
       ? ((totalReturns / orderCount) * 100).toFixed(1)
       : "0.0";
-
-  // Pending claims count (reimbursements with status = 'pending')
-  const { count: pendingClaims } = await supabase
-    .from("reimbursements")
-    .select("id", { count: "exact", head: true })
-    .eq("status", "pending");
 
   return (
     <div className="min-h-screen">
@@ -84,7 +89,7 @@ export default async function ReimbursementsPage({
         <div className="p-8 space-y-6">
           <PeriodFilter />
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <StatBox
               label="Total Returns"
               value={totalReturns}
@@ -98,20 +103,27 @@ export default async function ReimbursementsPage({
               gradient="amber"
             />
             <StatBox
+              label="Reimbursed"
+              value={`£${totalReimbursed.toFixed(2)}`}
+              iconName="Coins"
+              gradient="emerald"
+            />
+            <StatBox
               label="Return Rate"
               value={`${returnRate}%`}
               iconName="Percent"
               gradient="orange"
             />
             <StatBox
-              label="Pending Claims"
-              value={pendingClaims ?? 0}
+              label="Reimbursement Events"
+              value={reimbursementRows.length}
               iconName="Receipt"
               gradient="violet"
             />
           </div>
 
           <ReturnsTable rows={returnRows} />
+          <ReimbursementsTable rows={reimbursementRows} />
         </div>
       </MainContent>
     </div>

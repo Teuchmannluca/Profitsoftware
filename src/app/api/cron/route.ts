@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { syncOrders } from "@/actions/sync-orders";
 import { syncFinances } from "@/actions/sync-finances";
 import { syncInboundShipments } from "@/actions/sync-inbound-shipments";
+import { syncReimbursements } from "@/actions/sync-reimbursements";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
@@ -19,6 +20,7 @@ export async function GET(request: Request) {
     const ordersResult = await syncOrders();
     const financesResult = await syncFinances();
     const inboundResult = await syncInboundShipments();
+    const reimbursementsResult = await syncReimbursements();
 
     const duration = ((Date.now() - start) / 1000).toFixed(1);
     console.log(`[cron] Sync complete in ${duration}s`);
@@ -29,6 +31,7 @@ export async function GET(request: Request) {
       orders: ordersResult,
       finances: financesResult,
       inbound: inboundResult,
+      reimbursements: reimbursementsResult,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";

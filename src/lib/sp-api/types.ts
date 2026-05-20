@@ -159,10 +159,41 @@ export interface ShipmentEvent {
   ShipmentItemList: FinancialShipmentItem[];
 }
 
+// Adjustment events (FBA reimbursements, fee corrections)
+export interface AdjustmentItem {
+  Quantity: number;
+  PerUnitAmount: { CurrencyCode: string; Amount: number };
+  TotalAmount: { CurrencyCode: string; Amount: number };
+  SellerSKU: string;
+  FnSKU?: string;
+  ASIN?: string;
+  ProductDescription?: string;
+}
+
+export interface AdjustmentEvent {
+  AdjustmentType: string;
+  PostedDate: string;
+  AdjustmentAmount: { CurrencyCode: string; Amount: number };
+  AdjustmentItemList?: AdjustmentItem[];
+}
+
+// SAFE-T reimbursement events
+export interface SAFETReimbursementEvent {
+  PostedDate: string;
+  SAFETClaimId: string;
+  ReimbursedAmount: { CurrencyCode: string; Amount: number };
+  ReasonCode?: string;
+  SAFETReimbursementItemList?: Array<{
+    ItemChargeList?: Array<{ ChargeType: string; ChargeAmount: { CurrencyCode: string; Amount: number } }>;
+  }>;
+}
+
 export interface FinancialEventsPayload {
   FinancialEvents: {
     ShipmentEventList?: ShipmentEvent[];
     RefundEventList?: ShipmentEvent[];
+    AdjustmentEventList?: AdjustmentEvent[];
+    SAFETReimbursementEventList?: SAFETReimbursementEvent[];
   };
   NextToken?: string;
 }

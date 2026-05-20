@@ -7,6 +7,7 @@ import { RefreshCw } from "lucide-react";
 import { syncOrders } from "@/actions/sync-orders-action";
 import { syncFinances } from "@/actions/sync-finances-action";
 import { syncInboundShipments } from "@/actions/sync-inbound-shipments-action";
+import { syncReimbursements } from "@/actions/sync-reimbursements-action";
 
 export function SyncButton() {
   const [loading, setLoading] = useState(false);
@@ -17,6 +18,7 @@ export function SyncButton() {
     await syncOrders();
     await syncFinances();
     await syncInboundShipments();
+    await syncReimbursements();
     setLoading(false);
     router.refresh();
   }
