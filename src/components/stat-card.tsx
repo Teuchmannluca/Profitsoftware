@@ -7,6 +7,11 @@ import {
   Percent,
   TrendingUp,
   Package,
+  Truck,
+  ArrowRight,
+  Warehouse,
+  AlertTriangle,
+  Ban,
   type LucideIcon,
 } from "lucide-react";
 
@@ -19,12 +24,17 @@ const iconMap: Record<string, LucideIcon> = {
   Percent,
   TrendingUp,
   Package,
+  Truck,
+  ArrowRight,
+  Warehouse,
+  AlertTriangle,
+  Ban,
 };
 
 interface StatBoxProps {
   label: string;
   value: string | number;
-  iconName?: "ShoppingBag" | "RotateCcw" | "Receipt" | "Wallet" | "PiggyBank" | "Percent" | "TrendingUp" | "Package";
+  iconName?: keyof typeof iconMap;
   gradient?: "indigo" | "emerald" | "sky" | "amber" | "violet" | "rose" | "orange";
 }
 
@@ -39,13 +49,13 @@ const gradientMap = {
 };
 
 const bgTintMap = {
-  indigo: "bg-indigo-50",
-  emerald: "bg-emerald-50",
-  sky: "bg-sky-50",
-  amber: "bg-amber-50",
-  violet: "bg-violet-50",
-  rose: "bg-rose-50",
-  orange: "bg-orange-50",
+  indigo: "bg-indigo-50 dark:bg-indigo-950",
+  emerald: "bg-emerald-50 dark:bg-emerald-950",
+  sky: "bg-sky-50 dark:bg-sky-950",
+  amber: "bg-amber-50 dark:bg-amber-950",
+  violet: "bg-violet-50 dark:bg-violet-950",
+  rose: "bg-rose-50 dark:bg-rose-950",
+  orange: "bg-orange-50 dark:bg-orange-950",
 };
 
 const iconColorMap: Record<string, string> = {

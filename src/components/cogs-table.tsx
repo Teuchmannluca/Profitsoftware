@@ -14,9 +14,9 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Receipt, Search, Warehouse, Check, X } from "lucide-react";
-import { setProductCost, setProductVat } from "@/actions/cogs-action";
-import type { ProductCostRow } from "@/app/costs/page";
+import { Receipt, Search, Warehouse, Check, X, ChevronDown, ChevronRight, Plus } from "lucide-react";
+import { setProductCost, setProductVat, addCogsPeriod } from "@/actions/cogs-action";
+import type { ProductCostRow, CogsPeriodRow } from "@/app/costs/page";
 
 type FilterMode = "all" | "with_costs" | "missing_costs";
 
@@ -30,9 +30,9 @@ function formatMoney(value: number | null): string {
 }
 
 function vatColor(rate: number): string {
-  if (rate === 0) return "bg-slate-50 text-slate-700 ring-slate-600/20";
-  if (rate <= 0.05) return "bg-sky-50 text-sky-700 ring-sky-600/20";
-  return "bg-indigo-50 text-indigo-700 ring-indigo-600/20";
+  if (rate === 0) return "bg-slate-50 dark:bg-slate-950 text-slate-700 dark:text-slate-400 ring-slate-600/20 dark:ring-slate-400/20";
+  if (rate <= 0.05) return "bg-sky-50 dark:bg-sky-950 text-sky-700 dark:text-sky-400 ring-sky-600/20 dark:ring-sky-400/20";
+  return "bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-400 ring-indigo-600/20 dark:ring-indigo-400/20";
 }
 
 function EditableMoneyCell({
@@ -92,7 +92,7 @@ function EditableMoneyCell({
   return (
     <button
       onClick={startEdit}
-      className={`font-mono text-xs text-left cursor-pointer hover:bg-indigo-50 rounded-lg px-2 py-1 -mx-1 transition-colors ${
+      className={`font-mono text-xs text-left cursor-pointer hover:bg-indigo-50 dark:hover:bg-indigo-950 rounded-lg px-2 py-1 -mx-1 transition-colors ${
         value === null ? "text-muted-foreground/40 italic" : "text-foreground font-medium"
       }`}
     >
@@ -133,10 +133,145 @@ function VatCell({
   );
 }
 
-export function CogsTable({ rows }: { rows: ProductCostRow[] }) {
+function formatDate(d: string): string {
+  return new Date(d + "T00:00:00").toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function CogsPeriodPanel({
+  row,
+  history,
+  onSaved,
+}: {
+  row: ProductCostRow;
+  history: CogsPeriodRow[];
+  onSaved: () => void;
+}) {
+  const today = new Date().toISOString().split("T")[0];
+  const [validFrom, setValidFrom] = useState(today);
+  const [unitCost, setUnitCost] = useState(row.unit_cost?.toString() ?? "");
+  const [prepCost, setPrepCost] = useState(row.prep_cost?.toString() ?? "0");
+  const [saving, setSaving] = useState(false);
+
+  async function handleSave() {
+    if (!row.asin) return;
+    const uc = parseFloat(unitCost);
+    const pc = parseFloat(prepCost);
+    if (isNaN(uc) || uc < 0 || isNaN(pc) || pc < 0) return;
+    setSaving(true);
+    await addCogsPeriod({ asin: row.asin, unitCost: uc, prepCost: pc, validFrom });
+    setSaving(false);
+    onSaved();
+  }
+
+  return (
+    <div className="px-6 py-4 space-y-4">
+      <div className="flex items-end gap-3">
+        <div>
+          <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">
+            Effective from
+          </label>
+          <Input
+            type="date"
+            value={validFrom}
+            onChange={(e) => setValidFrom(e.target.value)}
+            className="h-8 w-40 text-xs font-mono rounded-lg"
+          />
+        </div>
+        <div>
+          <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">
+            Unit Cost
+          </label>
+          <div className="flex items-center gap-1">
+            <span className="text-xs text-muted-foreground">£</span>
+            <Input
+              type="number"
+              step="0.01"
+              min="0"
+              value={unitCost}
+              onChange={(e) => setUnitCost(e.target.value)}
+              className="h-8 w-24 font-mono text-xs px-2 rounded-lg"
+            />
+          </div>
+        </div>
+        <div>
+          <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">
+            Prep Fee
+          </label>
+          <div className="flex items-center gap-1">
+            <span className="text-xs text-muted-foreground">£</span>
+            <Input
+              type="number"
+              step="0.01"
+              min="0"
+              value={prepCost}
+              onChange={(e) => setPrepCost(e.target.value)}
+              className="h-8 w-24 font-mono text-xs px-2 rounded-lg"
+            />
+          </div>
+        </div>
+        <Button
+          size="sm"
+          onClick={handleSave}
+          disabled={saving || !row.asin}
+          className="h-8 text-xs rounded-lg"
+        >
+          <Plus className="h-3 w-3 mr-1" />
+          {saving ? "Saving..." : "New Cost Period"}
+        </Button>
+      </div>
+
+      {history.length > 0 && (
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">
+            Cost History
+          </p>
+          <div className="space-y-1">
+            {history.map((p) => (
+              <div
+                key={p.id}
+                className="flex items-center gap-3 text-xs font-mono py-1"
+              >
+                <span className="font-semibold w-16 text-right">
+                  £{p.total_cogs.toFixed(2)}
+                </span>
+                <span className="text-muted-foreground text-[10px]">
+                  (£{p.unit_cost.toFixed(2)} + £{p.prep_cost.toFixed(2)})
+                </span>
+                <span className="text-muted-foreground">
+                  {formatDate(p.valid_from)} → {p.valid_to ? formatDate(p.valid_to) : "current"}
+                </span>
+                {!p.valid_to && (
+                  <span className="inline-flex items-center rounded-full bg-emerald-50 dark:bg-emerald-950 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-700 dark:text-emerald-400 ring-1 ring-emerald-600/15 dark:ring-emerald-400/15">
+                    active
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function CogsTable({ rows, historyByAsin }: { rows: ProductCostRow[]; historyByAsin: Record<string, CogsPeriodRow[]> }) {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<FilterMode>("all");
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  function toggleExpand(sku: string) {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(sku)) next.delete(sku);
+      else next.add(sku);
+      return next;
+    });
+  }
 
   const withCostsCount = rows.filter((r) => r.unit_cost !== null).length;
   const missingCostsCount = rows.length - withCostsCount;
@@ -186,8 +321,8 @@ export function CogsTable({ rows }: { rows: ProductCostRow[] }) {
       <CardHeader className="pb-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <CardTitle className="flex items-center gap-2.5 text-sm font-semibold">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50">
-              <Receipt className="h-4 w-4 text-emerald-600" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 dark:bg-emerald-950">
+              <Receipt className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
             </div>
             Cost of Goods Sold
           </CardTitle>
@@ -247,7 +382,7 @@ export function CogsTable({ rows }: { rows: ProductCostRow[] }) {
 
         {filteredRows.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="rounded-2xl bg-emerald-50 p-4 mb-4">
+            <div className="rounded-2xl bg-emerald-50 dark:bg-emerald-950 p-4 mb-4">
               <Receipt className="h-6 w-6 text-emerald-400" />
             </div>
             <p className="text-sm font-semibold text-foreground">No products found</p>
@@ -260,7 +395,8 @@ export function CogsTable({ rows }: { rows: ProductCostRow[] }) {
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent border-border/50">
-                  <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground pl-6 w-[120px]">Image</TableHead>
+                  <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground pl-4 w-8" />
+                  <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground w-[120px]">Image</TableHead>
                   <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Product</TableHead>
                   <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">ASIN</TableHead>
                   <TableHead className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Unit Cost</TableHead>
@@ -270,9 +406,25 @@ export function CogsTable({ rows }: { rows: ProductCostRow[] }) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredRows.map((row) => (
+                {filteredRows.map((row) => {
+                  const isOpen = expanded.has(row.sku);
+                  const history = row.asin ? (historyByAsin[row.asin] ?? []) : [];
+                  return (
+                  <>
                   <TableRow key={row.sku} className="group border-border/40 transition-colors">
-                    <TableCell className="pl-6">
+                    <TableCell className="pl-4">
+                      <button
+                        onClick={() => toggleExpand(row.sku)}
+                        className="p-1 rounded hover:bg-muted/60 transition-colors text-muted-foreground hover:text-foreground"
+                      >
+                        {isOpen ? (
+                          <ChevronDown className="h-3.5 w-3.5" />
+                        ) : (
+                          <ChevronRight className="h-3.5 w-3.5" />
+                        )}
+                      </button>
+                    </TableCell>
+                    <TableCell>
                       {row.image_url ? (
                         <Image
                           src={row.image_url}
@@ -301,7 +453,7 @@ export function CogsTable({ rows }: { rows: ProductCostRow[] }) {
                           href={`https://www.amazon.co.uk/dp/${row.asin}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-indigo-600 hover:text-indigo-700 hover:underline transition-colors"
+                          className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-400 hover:underline transition-colors"
                         >
                           {row.asin}
                         </a>
@@ -338,7 +490,20 @@ export function CogsTable({ rows }: { rows: ProductCostRow[] }) {
                       />
                     </TableCell>
                   </TableRow>
-                ))}
+                  {isOpen && (
+                    <TableRow className="border-border/30 bg-muted/20 hover:bg-muted/20">
+                      <TableCell colSpan={8} className="p-0">
+                        <CogsPeriodPanel
+                          row={row}
+                          history={history}
+                          onSaved={() => router.refresh()}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  </>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>

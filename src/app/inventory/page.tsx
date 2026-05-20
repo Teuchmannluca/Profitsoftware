@@ -19,7 +19,15 @@ export default async function InventoryPage() {
   }
 
   const supabase = createServiceClient();
-  const today = new Date().toISOString().split("T")[0];
+
+  const { data: latestRow } = await supabase
+    .from("inventory_snapshots")
+    .select("date")
+    .order("date", { ascending: false })
+    .limit(1)
+    .single();
+
+  const snapshotDate = latestRow?.date ?? new Date().toISOString().split("T")[0];
 
   const { data: inventoryRows } = await supabase
     .from("inventory_snapshots")
@@ -34,11 +42,11 @@ export default async function InventoryPage() {
       total_quantity
     `
     )
-    .eq("date", today);
+    .eq("date", snapshotDate);
 
   const { data: products } = await supabase
     .from("products")
-    .select("sku, asin, fnsku, title, image_url");
+    .select("sku, asin, fnsku, title, image_url, active");
 
   const snapshotMap = new Map(
     (inventoryRows ?? []).map((s) => [s.sku, s])
@@ -52,6 +60,7 @@ export default async function InventoryPage() {
       fnsku: product.fnsku,
       title: product.title,
       image_url: product.image_url,
+      active: product.active ?? true,
       afn_fulfillable: snap?.afn_fulfillable ?? 0,
       afn_reserved: snap?.afn_reserved ?? 0,
       afn_inbound: snap?.afn_inbound ?? 0,
@@ -60,9 +69,11 @@ export default async function InventoryPage() {
     };
   });
 
-  const inStockCount = rows.filter((r) => r.total_quantity > 0).length;
-  const lowStockCount = rows.filter((r) => r.afn_fulfillable > 0 && r.afn_fulfillable < 10).length;
-  const outOfStockCount = rows.filter((r) => r.total_quantity === 0).length;
+  const activeRows = rows.filter((r) => r.active);
+  const inStockCount = activeRows.filter((r) => r.total_quantity > 0).length;
+  const lowStockCount = activeRows.filter((r) => r.afn_fulfillable > 0 && r.afn_fulfillable < 10).length;
+  const outOfStockCount = activeRows.filter((r) => r.total_quantity === 0).length;
+  const archivedCount = rows.filter((r) => !r.active).length;
 
   return (
     <div className="min-h-screen">
@@ -78,18 +89,18 @@ export default async function InventoryPage() {
         <div className="p-8 space-y-6">
           {/* Stock summary pills */}
           <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2 rounded-full bg-emerald-50 px-3.5 py-1.5 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-600/15">
+            <div className="flex items-center gap-2 rounded-full bg-emerald-50 dark:bg-emerald-950 px-3.5 py-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-400 ring-1 ring-emerald-600/15 dark:ring-emerald-400/15">
               <span className="h-2 w-2 rounded-full bg-emerald-500" />
               {inStockCount} In Stock
             </div>
             {lowStockCount > 0 && (
-              <div className="flex items-center gap-2 rounded-full bg-amber-50 px-3.5 py-1.5 text-xs font-semibold text-amber-700 ring-1 ring-amber-600/15">
+              <div className="flex items-center gap-2 rounded-full bg-amber-50 dark:bg-amber-950 px-3.5 py-1.5 text-xs font-semibold text-amber-700 dark:text-amber-400 ring-1 ring-amber-600/15 dark:ring-amber-400/15">
                 <span className="h-2 w-2 rounded-full bg-amber-500" />
                 {lowStockCount} Low Stock
               </div>
             )}
             {outOfStockCount > 0 && (
-              <div className="flex items-center gap-2 rounded-full bg-rose-50 px-3.5 py-1.5 text-xs font-semibold text-rose-700 ring-1 ring-rose-600/15">
+              <div className="flex items-center gap-2 rounded-full bg-rose-50 dark:bg-rose-950 px-3.5 py-1.5 text-xs font-semibold text-rose-700 dark:text-rose-400 ring-1 ring-rose-600/15 dark:ring-rose-400/15">
                 <span className="h-2 w-2 rounded-full bg-rose-500" />
                 {outOfStockCount} Out of Stock
               </div>

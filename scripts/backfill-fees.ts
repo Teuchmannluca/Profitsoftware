@@ -130,7 +130,7 @@ async function main() {
     const { data: batch, error: batchErr } = await supabase
       .from("order_items")
       .select(
-        "order_item_id, amazon_order_id, asin, qty, item_price_gross, item_tax, promo_discount"
+        "order_item_id, amazon_order_id, asin, qty, item_price_gross, item_tax, promo_discount, orders!inner(purchase_date)"
       )
       .is("estimated_fees", null)
       .not("asin", "is", null)

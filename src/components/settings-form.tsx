@@ -300,7 +300,7 @@ export function SettingsForm({ initialSettings }: SettingsFormProps) {
         )}
 
         {saved && (
-          <p className="text-sm text-emerald-600">
+          <p className="text-sm text-emerald-600 dark:text-emerald-400">
             Settings saved successfully
           </p>
         )}

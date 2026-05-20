@@ -30,9 +30,9 @@ interface ReturnRow {
 }
 
 const statusStyles: Record<string, string> = {
-  Refunded: "bg-rose-50 text-rose-700 ring-rose-600/20",
-  Pending: "bg-amber-50 text-amber-700 ring-amber-600/20",
-  Completed: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
+  Refunded: "bg-rose-50 dark:bg-rose-950 text-rose-700 dark:text-rose-400 ring-rose-600/20 dark:ring-rose-400/20",
+  Pending: "bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-400 ring-amber-600/20 dark:ring-amber-400/20",
+  Completed: "bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 ring-emerald-600/20 dark:ring-emerald-400/20",
 };
 
 const defaultStatusStyle = "bg-muted text-muted-foreground ring-border";
@@ -79,8 +79,8 @@ export function ReturnsTable({ rows }: { rows: ReturnRow[] }) {
       <CardHeader className="pb-4">
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2.5 text-sm font-semibold">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-rose-50">
-              <RotateCcw className="h-4 w-4 text-rose-600" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-rose-50 dark:bg-rose-950">
+              <RotateCcw className="h-4 w-4 text-rose-600 dark:text-rose-400" />
             </div>
             Returns
           </CardTitle>
@@ -98,7 +98,7 @@ export function ReturnsTable({ rows }: { rows: ReturnRow[] }) {
       <CardContent className="p-0">
         {sorted.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="rounded-2xl bg-rose-50 p-4 mb-4">
+            <div className="rounded-2xl bg-rose-50 dark:bg-rose-950 p-4 mb-4">
               <RotateCcw className="h-6 w-6 text-rose-400" />
             </div>
             <p className="text-sm font-semibold text-foreground">No returns found</p>

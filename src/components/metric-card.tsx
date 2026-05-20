@@ -70,8 +70,8 @@ export function MetricCard({
               <span
                 className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
                   isPositive
-                    ? "bg-emerald-50 text-emerald-700"
-                    : "bg-rose-50 text-rose-700"
+                    ? "bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400"
+                    : "bg-rose-50 dark:bg-rose-950 text-rose-700 dark:text-rose-400"
                 }`}
               >
                 {isPositive ? (

@@ -166,3 +166,38 @@ export interface FinancialEventsPayload {
   };
   NextToken?: string;
 }
+
+// FBA Inbound Shipments API types
+export interface InboundShipmentData {
+  ShipmentId: string;
+  ShipmentName: string;
+  ShipmentStatus: string;
+  DestinationFulfillmentCenterId: string;
+  AreCasesRequired: boolean;
+  LabelPrepType?: string;
+  ConfirmedNeedByDate?: string;
+  BoxContentsSource?: string;
+}
+
+export interface InboundShipmentItem {
+  ShipmentId?: string;
+  SellerSKU: string;
+  FulfillmentNetworkSKU: string;
+  QuantityShipped: number;
+  QuantityReceived: number;
+  QuantityInCase?: number;
+}
+
+export interface GetShipmentsResponse {
+  payload: {
+    ShipmentData: InboundShipmentData[];
+    NextToken?: string;
+  };
+}
+
+export interface GetShipmentItemsResponse {
+  payload: {
+    ItemData: InboundShipmentItem[];
+    NextToken?: string;
+  };
+}

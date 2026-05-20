@@ -8,65 +8,75 @@ interface MonthComparisonProps {
 }
 
 function formatMoney(value: number): string {
-  return `£${value.toFixed(2)}`;
+  return `£${value.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-function PercentChange({ current, previous }: { current: number; previous: number }) {
-  if (previous === 0) {
-    return <span className="text-[10px] text-muted-foreground">--</span>;
-  }
-  const change = ((current - previous) / previous) * 100;
-  const isPositive = change >= 0;
-
-  return (
-    <span
-      className={`inline-flex items-center gap-0.5 text-[10px] font-semibold ${
-        isPositive ? "text-emerald-600" : "text-rose-600"
-      }`}
-    >
-      {isPositive ? (
-        <ArrowUp className="h-3 w-3" />
-      ) : (
-        <ArrowDown className="h-3 w-3" />
-      )}
-      {Math.abs(change).toFixed(1)}%
-    </span>
-  );
+function formatNumber(value: number): string {
+  return value.toLocaleString("en-GB");
 }
 
-function MetricRow({
-  label,
-  currentValue,
-  previousValue,
-  format = "money",
-}: {
+interface MetricBlockProps {
   label: string;
-  currentValue: number;
-  previousValue: number;
-  format?: "money" | "number" | "percent";
-}) {
-  const formatValue = (v: number) => {
-    switch (format) {
-      case "money":
-        return formatMoney(v);
-      case "percent":
-        return `${v.toFixed(1)}%`;
-      case "number":
-        return String(v);
-    }
+  current: number;
+  previous: number;
+  format: "money" | "number" | "percent";
+  currentLabel: string;
+  previousLabel: string;
+}
+
+function MetricBlock({ label, current, previous, format, currentLabel, previousLabel }: MetricBlockProps) {
+  let change = 0;
+  let isPositive = true;
+  if (previous > 0) {
+    change = ((current - previous) / previous) * 100;
+    isPositive = change >= 0;
+  } else if (current > 0) {
+    change = 100;
+    isPositive = true;
+  }
+
+  const isGood = label === "Fees" || label === "Refunds" ? !isPositive : isPositive;
+  const changeColor = isGood ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400";
+  const changeBg = isGood ? "bg-emerald-50 dark:bg-emerald-950" : "bg-rose-50 dark:bg-rose-950";
+  const changeBorder = isGood ? "border-emerald-200 dark:border-emerald-900" : "border-rose-200 dark:border-rose-900";
+
+  const fmt = (v: number) => {
+    if (format === "money") return formatMoney(v);
+    if (format === "percent") return `${v.toFixed(1)}%`;
+    return formatNumber(v);
   };
 
   return (
-    <div className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-3 py-2 border-b border-border/30 last:border-0">
-      <span className="text-xs font-medium text-muted-foreground">{label}</span>
-      <span className="text-xs font-mono font-semibold text-right w-16 text-foreground">
-        {formatValue(currentValue)}
-      </span>
-      <span className="text-xs font-mono text-muted-foreground text-right w-16">
-        {formatValue(previousValue)}
-      </span>
-      <div className="w-12 text-right">
-        <PercentChange current={currentValue} previous={previousValue} />
+    <div className="rounded-2xl bg-card p-4 ring-1 ring-border/50">
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+          {label}
+        </span>
+        <div className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-bold ${changeBg} ${changeColor} ${changeBorder}`}>
+          {isPositive ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
+          {previous > 0 ? `${Math.abs(change).toFixed(0)}%` : "New"}
+        </div>
+      </div>
+
+      <p className="text-2xl font-bold tracking-tight font-mono text-foreground">
+        {fmt(current)}
+      </p>
+
+      <div className="flex items-center gap-2 mt-2">
+        <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
+          {previousLabel}
+        </span>
+        <span className="text-xs font-mono text-muted-foreground">
+          {fmt(previous)}
+        </span>
+      </div>
+
+      {/* Mini bar */}
+      <div className="mt-3 h-1.5 rounded-full bg-muted overflow-hidden">
+        <div
+          className={`h-full rounded-full ${isGood ? "bg-emerald-500" : "bg-rose-500"} transition-all duration-700`}
+          style={{ width: `${Math.min((current / Math.max(previous, current, 1)) * 100, 100)}%` }}
+        />
       </div>
     </div>
   );
@@ -77,54 +87,52 @@ export function MonthComparison({ currentMonth, previousMonth }: MonthComparison
     <Card className="h-full overflow-hidden shadow-card ring-1 ring-border/50">
       <CardHeader className="pb-4">
         <CardTitle className="flex items-center gap-2.5 text-sm font-semibold">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50">
-            <BarChart3 className="h-4 w-4 text-amber-600" />
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50 dark:bg-amber-950">
+            <BarChart3 className="h-4 w-4 text-amber-600 dark:text-amber-400" />
           </div>
-          Month Comparison
+          Month vs Month
         </CardTitle>
-        <div className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-3 pt-1">
-          <span />
-          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground text-right w-16">
-            {currentMonth.label}
-          </span>
-          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground text-right w-16">
-            {previousMonth.label}
-          </span>
-          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground text-right w-12">
-            Change
-          </span>
-        </div>
       </CardHeader>
-      <CardContent className="space-y-0">
-        <MetricRow
+      <CardContent className="space-y-3">
+        <MetricBlock
           label="Gross Sales"
-          currentValue={currentMonth.metrics.grossSales}
-          previousValue={previousMonth.metrics.grossSales}
+          current={currentMonth.metrics.grossSales}
+          previous={previousMonth.metrics.grossSales}
           format="money"
+          currentLabel={currentMonth.label}
+          previousLabel={previousMonth.label}
         />
-        <MetricRow
-          label="Units Sold"
-          currentValue={currentMonth.metrics.unitsSold}
-          previousValue={previousMonth.metrics.unitsSold}
-          format="number"
-        />
-        <MetricRow
-          label="Orders"
-          currentValue={currentMonth.metrics.orderCount}
-          previousValue={previousMonth.metrics.orderCount}
-          format="number"
-        />
-        <MetricRow
+        <MetricBlock
           label="Est. Profit"
-          currentValue={currentMonth.metrics.estimatedProfit}
-          previousValue={previousMonth.metrics.estimatedProfit}
+          current={currentMonth.metrics.estimatedProfit}
+          previous={previousMonth.metrics.estimatedProfit}
           format="money"
+          currentLabel={currentMonth.label}
+          previousLabel={previousMonth.label}
         />
-        <MetricRow
+        <MetricBlock
+          label="Units Sold"
+          current={currentMonth.metrics.unitsSold}
+          previous={previousMonth.metrics.unitsSold}
+          format="number"
+          currentLabel={currentMonth.label}
+          previousLabel={previousMonth.label}
+        />
+        <MetricBlock
+          label="Orders"
+          current={currentMonth.metrics.orderCount}
+          previous={previousMonth.metrics.orderCount}
+          format="number"
+          currentLabel={currentMonth.label}
+          previousLabel={previousMonth.label}
+        />
+        <MetricBlock
           label="Margin"
-          currentValue={currentMonth.metrics.margin}
-          previousValue={previousMonth.metrics.margin}
+          current={currentMonth.metrics.margin}
+          previous={previousMonth.metrics.margin}
           format="percent"
+          currentLabel={currentMonth.label}
+          previousLabel={previousMonth.label}
         />
       </CardContent>
     </Card>

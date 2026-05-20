@@ -54,7 +54,7 @@ export default async function ReimbursementsPage({
   // Fetch total order count for return rate
   const { count: orderCount } = await supabase
     .from("orders")
-    .select("id", { count: "exact", head: true })
+    .select("amazon_order_id", { count: "exact", head: true })
     .gte("purchase_date", from.toISOString())
     .lte("purchase_date", to.toISOString());
 

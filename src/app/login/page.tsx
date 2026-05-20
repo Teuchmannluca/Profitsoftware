@@ -106,7 +106,7 @@ export default function LoginPage() {
             </div>
 
             {error && (
-              <div className="rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700 ring-1 ring-rose-600/15">
+              <div className="rounded-xl bg-rose-50 dark:bg-rose-950 px-4 py-3 text-sm text-rose-700 dark:text-rose-400 ring-1 ring-rose-600/15 dark:ring-rose-400/15">
                 {error}
               </div>
             )}

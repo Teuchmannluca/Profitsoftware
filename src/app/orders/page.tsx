@@ -67,7 +67,7 @@ export default async function OrdersPage({
       ? await supabase
           .from("order_items")
           .select(
-            "amazon_order_id, sku, asin, qty, item_price_gross, item_tax, shipping_price, promo_discount, estimated_profit, cogs_snapshot, refund_status"
+            "amazon_order_id, sku, asin, qty, item_price_gross, item_tax, shipping_price, promo_discount, estimated_profit, estimated_fees, actual_fees, actual_profit, cogs_snapshot, refund_status"
           )
           .in("amazon_order_id", orderIds)
       : { data: [] };
@@ -76,7 +76,7 @@ export default async function OrdersPage({
   const skus = [...new Set(orderItems?.map((i) => i.sku).filter(Boolean) ?? [])];
   const { data: products } =
     skus.length > 0
-      ? await supabase.from("products").select("sku, title, image_url").in("sku", skus)
+      ? await supabase.from("products").select("sku, title, image_url, vat_rate").in("sku", skus)
       : { data: [] };
 
   const productMap = new Map(products?.map((p) => [p.sku, p]) ?? []);
@@ -100,17 +100,21 @@ export default async function OrdersPage({
           asin: item.asin,
           title: productMap.get(item.sku)?.title ?? null,
           image_url: productMap.get(item.sku)?.image_url ?? null,
+          vat_rate: parseFloat(String(productMap.get(item.sku)?.vat_rate ?? "0.20")),
           qty: item.qty ?? 0,
           item_price_gross: parseFloat(String(item.item_price_gross ?? "0")),
           item_tax: parseFloat(String(item.item_tax ?? "0")),
           shipping_price: parseFloat(String(item.shipping_price ?? "0")),
           promo_discount: parseFloat(String(item.promo_discount ?? "0")),
-          estimated_profit: item.estimated_profit
-            ? parseFloat(String(item.estimated_profit))
-            : null,
+          estimated_profit: item.actual_profit != null
+            ? parseFloat(String(item.actual_profit))
+            : item.estimated_profit != null
+              ? parseFloat(String(item.estimated_profit))
+              : null,
           cogs_snapshot: item.cogs_snapshot
             ? parseFloat(String(item.cogs_snapshot))
             : null,
+          fees_total: parseFloat(String(((item.actual_fees ?? item.estimated_fees) as Record<string, unknown>)?.totalFees ?? "0")),
           refund_status: item.refund_status ?? "none",
         })) ?? [],
     })) ?? [];

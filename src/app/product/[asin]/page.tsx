@@ -51,7 +51,7 @@ export default async function ProductDetailPage({
           <PageHeader title="Product Insight" subtitle="Product not found" />
           <div className="p-8">
             <div className="flex flex-col items-center justify-center py-16 text-center">
-              <div className="rounded-2xl bg-rose-50 p-4 mb-4">
+              <div className="rounded-2xl bg-rose-50 dark:bg-rose-950 p-4 mb-4">
                 <Package className="h-6 w-6 text-rose-400" />
               </div>
               <p className="text-sm font-semibold text-foreground">
@@ -119,14 +119,14 @@ export default async function ProductDetailPage({
                   </div>
 
                   <div className="flex flex-wrap items-center gap-3">
-                    <span className="inline-flex items-center rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700 ring-1 ring-indigo-600/15">
+                    <span className="inline-flex items-center rounded-full bg-indigo-50 dark:bg-indigo-950 px-3 py-1 text-xs font-semibold text-indigo-700 dark:text-indigo-400 ring-1 ring-indigo-600/15 dark:ring-indigo-400/15">
                       Stock: {currentStock.total}
                     </span>
-                    <span className="inline-flex items-center rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700 ring-1 ring-amber-600/15">
+                    <span className="inline-flex items-center rounded-full bg-amber-50 dark:bg-amber-950 px-3 py-1 text-xs font-semibold text-amber-700 dark:text-amber-400 ring-1 ring-amber-600/15 dark:ring-amber-400/15">
                       VAT: {(product.vat_rate * 100).toFixed(0)}%
                     </span>
                     {currentCogs ? (
-                      <span className="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-600/15">
+                      <span className="inline-flex items-center rounded-full bg-emerald-50 dark:bg-emerald-950 px-3 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-400 ring-1 ring-emerald-600/15 dark:ring-emerald-400/15">
                         COGS: £{currentCogs.totalCogs.toFixed(2)}
                       </span>
                     ) : (
@@ -229,8 +229,8 @@ export default async function ProductDetailPage({
             <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2.5 text-sm font-semibold">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50">
-                    <CalendarDays className="h-4 w-4 text-indigo-600" />
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 dark:bg-indigo-950">
+                    <CalendarDays className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
                   </div>
                   Monthly Breakdown
                 </CardTitle>
@@ -277,10 +277,10 @@ export default async function ProductDetailPage({
                           <TableCell className="text-xs font-mono text-muted-foreground text-right">
                             £{row.cogs.toFixed(2)}
                           </TableCell>
-                          <TableCell className={`text-xs font-mono text-right font-medium ${row.profit >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+                          <TableCell className={`text-xs font-mono text-right font-medium ${row.profit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
                             £{row.profit.toFixed(2)}
                           </TableCell>
-                          <TableCell className={`text-xs font-mono text-right ${row.margin >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+                          <TableCell className={`text-xs font-mono text-right ${row.margin >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
                             {row.margin.toFixed(1)}%
                           </TableCell>
                           <TableCell className="text-xs font-mono text-muted-foreground text-right pr-6">
@@ -300,8 +300,8 @@ export default async function ProductDetailPage({
             <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2.5 text-sm font-semibold">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-50">
-                    <TrendingDown className="h-4 w-4 text-orange-600" />
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-50 dark:bg-orange-950">
+                    <TrendingDown className="h-4 w-4 text-orange-600 dark:text-orange-400" />
                   </div>
                   COGS History
                 </CardTitle>
@@ -338,7 +338,7 @@ export default async function ProductDetailPage({
                             {period.validTo ? (
                               period.validTo
                             ) : (
-                              <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 ring-1 ring-emerald-600/15">
+                              <span className="inline-flex items-center rounded-full bg-emerald-50 dark:bg-emerald-950 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 ring-1 ring-emerald-600/15 dark:ring-emerald-400/15">
                                 Active
                               </span>
                             )}
@@ -369,13 +369,13 @@ export default async function ProductDetailPage({
             <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2.5 text-sm font-semibold">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-50">
-                    <ShoppingCart className="h-4 w-4 text-sky-600" />
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-50 dark:bg-sky-950">
+                    <ShoppingCart className="h-4 w-4 text-sky-600 dark:text-sky-400" />
                   </div>
-                  Recent Orders
+                  Order History
                 </CardTitle>
                 <span className="text-xs font-medium text-muted-foreground bg-muted px-2.5 py-1 rounded-full">
-                  Last {recentOrders.length}
+                  {recentOrders.length} orders
                 </span>
               </div>
             </CardHeader>
@@ -416,7 +416,7 @@ export default async function ProductDetailPage({
                           <TableCell className="text-xs font-mono text-muted-foreground text-right">
                             £{order.fees.toFixed(2)}
                           </TableCell>
-                          <TableCell className={`text-xs font-mono text-right font-medium ${order.profit !== null && order.profit >= 0 ? "text-emerald-600" : order.profit !== null ? "text-rose-600" : "text-muted-foreground"}`}>
+                          <TableCell className={`text-xs font-mono text-right font-medium ${order.profit !== null && order.profit >= 0 ? "text-emerald-600 dark:text-emerald-400" : order.profit !== null ? "text-rose-600 dark:text-rose-400" : "text-muted-foreground"}`}>
                             {order.profit !== null ? `£${order.profit.toFixed(2)}` : "—"}
                           </TableCell>
                           <TableCell className="pr-6">
@@ -436,8 +436,8 @@ export default async function ProductDetailPage({
             <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2.5 text-sm font-semibold">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-50">
-                    <Warehouse className="h-4 w-4 text-violet-600" />
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-50 dark:bg-violet-950">
+                    <Warehouse className="h-4 w-4 text-violet-600 dark:text-violet-400" />
                   </div>
                   Inventory Trend
                 </CardTitle>

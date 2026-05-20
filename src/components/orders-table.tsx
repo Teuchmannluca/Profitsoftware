@@ -27,8 +27,8 @@ export function OrdersTable({ orders }: { orders: Order[] }) {
       <CardHeader className="pb-4">
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2.5 text-sm font-semibold">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50">
-              <Package className="h-4 w-4 text-indigo-600" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 dark:bg-indigo-950">
+              <Package className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
             </div>
             Recent Orders
           </CardTitle>
@@ -40,7 +40,7 @@ export function OrdersTable({ orders }: { orders: Order[] }) {
       <CardContent className="p-0">
         {orders.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="rounded-2xl bg-indigo-50 p-4 mb-4">
+            <div className="rounded-2xl bg-indigo-50 dark:bg-indigo-950 p-4 mb-4">
               <Package className="h-6 w-6 text-indigo-400" />
             </div>
             <p className="text-sm font-semibold text-foreground">No orders yet</p>

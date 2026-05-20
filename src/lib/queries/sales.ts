@@ -10,6 +10,7 @@ export interface SalesMetrics {
   estimatedProfit: number;
   unitsSold: number;
   orderCount: number;
+  totalOrderCount: number;
   margin: number;
   roi: number;
 }
@@ -51,7 +52,27 @@ export function getDateRange(period: string): { from: Date; to: Date } {
       const to = new Date(startOfDay(now).getTime() + 86400000 - 1);
       return { from, to };
     }
+    case "90days": {
+      const from = startOfDay(new Date(now.getTime() - 90 * 86400000));
+      const to = new Date(startOfDay(now).getTime() + 86400000 - 1);
+      return { from, to };
+    }
+    case "365days": {
+      const from = startOfDay(new Date(now.getTime() - 365 * 86400000));
+      const to = new Date(startOfDay(now).getTime() + 86400000 - 1);
+      return { from, to };
+    }
     default: {
+      if (period.startsWith("custom_")) {
+        const parts = period.slice(7).split("_");
+        if (parts.length === 2) {
+          const from = new Date(parts[0] + "T00:00:00");
+          const to = new Date(parts[1] + "T23:59:59.999");
+          if (!isNaN(from.getTime()) && !isNaN(to.getTime())) {
+            return { from, to };
+          }
+        }
+      }
       const from = startOfDay(now);
       const to = new Date(from.getTime() + 86400000 - 1);
       return { from, to };
@@ -96,13 +117,13 @@ export async function getSalesMetrics(from: Date, to: Date): Promise<SalesMetric
     if (batch.length < pageSize) break;
     page++;
   }
-  const orderCount = orderIds.length;
+  const totalOrderCount = orderIds.length;
 
   if (orderIds.length === 0) {
     return {
       grossSales: 0, vatCollected: 0, promoDiscount: 0, netRevenue: 0,
       totalFees: 0, totalCogs: 0, estimatedProfit: 0, unitsSold: 0,
-      orderCount: 0, margin: 0, roi: 0,
+      orderCount: 0, totalOrderCount: 0, margin: 0, roi: 0,
     };
   }
 
@@ -112,10 +133,18 @@ export async function getSalesMetrics(from: Date, to: Date): Promise<SalesMetric
     const chunk = orderIds.slice(i, i + 200);
     const { data: items } = await supabase
       .from("order_items")
-      .select("asin, qty, item_price_gross, item_tax, shipping_price, promo_discount, estimated_fees, actual_fees, orders!inner(purchase_date)")
+      .select("sku, asin, qty, item_price_gross, item_tax, shipping_price, promo_discount, estimated_fees, actual_fees, orders!inner(purchase_date)")
       .in("amazon_order_id", chunk);
     allItems.push(...(items ?? []));
   }
+
+  // Step 2b: Get product VAT rates for deriving tax when Amazon returns 0
+  const { data: productVatData } = await supabase
+    .from("products")
+    .select("sku, vat_rate");
+  const skuToVatRate = new Map(
+    (productVatData ?? []).map((p) => [p.sku, parseFloat(String(p.vat_rate ?? "0.20"))])
+  );
 
   // Step 3: Get COGS periods so historical ranges use the cost active on purchase date.
   const { data: cogs } = await supabase
@@ -139,13 +168,24 @@ export async function getSalesMetrics(from: Date, to: Date): Promise<SalesMetric
     cogsMap.set(c.asin, periods);
   }
 
-  // Step 4: Aggregate
+  // Step 4: Read VAT settings (needed for fee normalisation in aggregation)
+  const { data: settings } = await supabase
+    .from("business_settings")
+    .select("vat_status, vat_rate")
+    .eq("id", 1)
+    .single();
+
+  const vatStatus = settings?.vat_status ?? "standard";
+  const vatRate = parseFloat(String(settings?.vat_rate ?? "0.20"));
+
+  // Step 5: Aggregate
   let grossSales = 0;
   let vatCollected = 0;
   let promoDiscount = 0;
   let unitsSold = 0;
   let totalCogs = 0;
   let totalFees = 0;
+  const contributingOrders = new Set<string>();
 
   for (const item of allItems) {
     const qty = (item.qty as number) ?? 0;
@@ -154,8 +194,14 @@ export async function getSalesMetrics(from: Date, to: Date): Promise<SalesMetric
     // Skip items with £0 price (Pending orders — Amazon hasn't confirmed the charge)
     if (price === 0) continue;
 
+    contributingOrders.add(item.amazon_order_id as string);
     grossSales += price;
-    vatCollected += parseFloat(String(item.item_tax ?? "0"));
+    let itemTax = parseFloat(String(item.item_tax ?? "0"));
+    if (itemTax === 0 && price > 0) {
+      const itemVatRate = skuToVatRate.get(item.sku as string) ?? vatRate;
+      itemTax = price * (itemVatRate / (1 + itemVatRate));
+    }
+    vatCollected += itemTax;
     promoDiscount += parseFloat(String(item.promo_discount ?? "0"));
     unitsSold += qty;
 
@@ -172,32 +218,26 @@ export async function getSalesMetrics(from: Date, to: Date): Promise<SalesMetric
     totalCogs += unitCogs * qty;
 
     const fees = (item.actual_fees ?? item.estimated_fees) as Record<string, unknown> | null;
-    const perUnitFee = parseFloat(String(fees?.totalFees ?? "0"));
+    const perUnitFeeRaw = parseFloat(String(fees?.totalFees ?? "0"));
+    // Both actual_fees (Finance API) and estimated_fees (Fees Estimate API) are inc-VAT.
+    // Strip VAT to get ex-VAT fee cost (VAT on fees is reclaimable for registered sellers).
+    const perUnitFee = perUnitFeeRaw / (1 + vatRate);
     totalFees += perUnitFee * qty;
   }
 
-  // Step 5: Read VAT registration status
-  const { data: settings } = await supabase
-    .from("business_settings")
-    .select("vat_status, vat_rate")
-    .eq("id", 1)
-    .single();
-
-  const vatStatus = settings?.vat_status ?? "standard";
-  console.log(`[sales] VAT status from DB: "${vatStatus}", gross: ${grossSales.toFixed(2)}, fees: ${totalFees.toFixed(2)}, vatCollected: ${vatCollected.toFixed(2)}`);
+  console.log(`[sales] VAT status: "${vatStatus}", gross: ${grossSales.toFixed(2)}, fees(ex-VAT): ${totalFees.toFixed(2)}, vatCollected: ${vatCollected.toFixed(2)}`);
 
   let netRevenue: number;
   let adjustedFees: number;
 
   if (vatStatus === "not_registered") {
-    // Not VAT registered: no VAT to subtract from revenue,
-    // but can't reclaim VAT on fees (fees include irrecoverable VAT)
+    // Not VAT registered: revenue is the full gross (no VAT owed),
+    // but can't reclaim VAT on fees → true cost is fee inc-VAT
     netRevenue = grossSales - promoDiscount;
-    const vatOnFees = totalFees * 0.2;
-    adjustedFees = totalFees + vatOnFees;
+    adjustedFees = totalFees * (1 + vatRate);
   } else {
-    // Standard VAT registered: subtract VAT from revenue,
-    // fees are ex-VAT (can reclaim VAT on fees)
+    // Standard VAT registered: subtract collected VAT from revenue,
+    // fees already normalised to ex-VAT (VAT on fees is reclaimed)
     netRevenue = grossSales - vatCollected - promoDiscount;
     adjustedFees = totalFees;
   }
@@ -216,7 +256,8 @@ export async function getSalesMetrics(from: Date, to: Date): Promise<SalesMetric
     totalCogs,
     estimatedProfit,
     unitsSold,
-    orderCount,
+    orderCount: contributingOrders.size,
+    totalOrderCount,
     margin,
     roi,
   };

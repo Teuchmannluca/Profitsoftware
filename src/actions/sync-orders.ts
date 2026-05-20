@@ -1,6 +1,7 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import { getRecentOrders, getOrderItems } from "@/lib/sp-api/orders";
-import { getFeesEstimateForASIN } from "@/lib/sp-api/fees";
+import { getFeesEstimateForItem } from "@/lib/sp-api/fees";
+import { getMyPriceForASINs } from "@/lib/sp-api/pricing";
 import type { SpApiOrder, SpApiOrderItem } from "@/lib/sp-api/types";
 
 export function mapSpApiOrderToRow(order: SpApiOrder) {
@@ -28,6 +29,10 @@ export function mapSpApiItemToRow(item: SpApiOrderItem, orderId: string) {
     shipping_price: parseFloat(item.ShippingPrice?.Amount ?? "0"),
     promo_discount: parseFloat(item.PromotionDiscount?.Amount ?? "0"),
   };
+}
+
+export function getPerUnitPrice(lineTotal: number, qty: number | null | undefined) {
+  return qty && qty > 0 ? lineTotal / qty : lineTotal;
 }
 
 export async function syncOrders(sinceOverride?: string): Promise<{
@@ -97,6 +102,7 @@ export async function syncOrders(sinceOverride?: string): Promise<{
 
     // Fetch items for each order — burst limit: 30, then 0.5 req/sec
     // Use burst for first 25 orders (no throttle), then throttle
+    const retryCount = new Map<string, number>();
     for (let i = 0; i < Orders.length; i++) {
       const order = Orders[i];
       try {
@@ -116,9 +122,13 @@ export async function syncOrders(sinceOverride?: string): Promise<{
         }
       } catch (itemErr: unknown) {
         const msg = itemErr instanceof Error ? itemErr.message : String(itemErr);
-        if (msg.includes("429") || msg.includes("QuotaExceeded")) {
-          console.log(`[orders-sync] Rate limited at order ${i + 1}/${Orders.length}, waiting 30s...`);
-          await new Promise((r) => setTimeout(r, 30000));
+        const attempts = (retryCount.get(order.AmazonOrderId) ?? 0) + 1;
+        retryCount.set(order.AmazonOrderId, attempts);
+        const isRetryable = msg.includes("429") || msg.includes("QuotaExceeded") || msg.includes("500") || msg.includes("503");
+        if (isRetryable && attempts <= 3) {
+          const waitSec = msg.includes("429") || msg.includes("QuotaExceeded") ? 30 : 10;
+          console.log(`[orders-sync] Retryable error for ${order.AmazonOrderId} (attempt ${attempts}/3), waiting ${waitSec}s...`);
+          await new Promise((r) => setTimeout(r, waitSec * 1000));
           i--;
           continue;
         }
@@ -135,6 +145,33 @@ export async function syncOrders(sinceOverride?: string): Promise<{
       }
     }
 
+    // Re-fetch items for orders from this batch that ended up with 0 items
+    const batchOrderIds = Orders.map((o) => o.AmazonOrderId);
+    const { data: ordersWithItems } = await supabase
+      .from("order_items")
+      .select("amazon_order_id")
+      .in("amazon_order_id", batchOrderIds);
+    const hasItems = new Set((ordersWithItems ?? []).map((r) => r.amazon_order_id));
+    const emptyOrders = Orders.filter((o) => !hasItems.has(o.AmazonOrderId));
+    if (emptyOrders.length > 0) {
+      console.log(`[orders-sync] Retrying item fetch for ${emptyOrders.length} orders with 0 items`);
+      for (const order of emptyOrders) {
+        try {
+          await new Promise((r) => setTimeout(r, 2000));
+          const { OrderItems } = await getOrderItems(order.AmazonOrderId);
+          const itemRows = OrderItems.map((item) => mapSpApiItemToRow(item, order.AmazonOrderId));
+          if (itemRows.length > 0) {
+            const { error: err } = await supabase
+              .from("order_items")
+              .upsert(itemRows, { onConflict: "order_item_id" });
+            if (!err) itemsWritten += itemRows.length;
+          }
+        } catch {
+          console.error(`[orders-sync] Retry also failed for ${order.AmazonOrderId}`);
+        }
+      }
+    }
+
     // Fill in prices for Pending orders (£0) using last known PER-UNIT price per ASIN
     // Amazon's ItemPrice is the LINE TOTAL (price × qty), so we must normalize to per-unit
     const { data: zeroPriceItems } = await supabase
@@ -147,6 +184,7 @@ export async function syncOrders(sinceOverride?: string): Promise<{
       const uniqueAsins = [...new Set(zeroPriceItems.map((i) => i.asin))];
       const perUnitPriceMap = new Map<string, number>();
 
+      // First try: last known price from previous orders
       for (const asin of uniqueAsins) {
         const { data: lastKnown } = await supabase
           .from("order_items")
@@ -163,6 +201,16 @@ export async function syncOrders(sinceOverride?: string): Promise<{
         }
       }
 
+      // Second try: SP-API Product Pricing API for ASINs still missing a price
+      const missingAsins = uniqueAsins.filter((a) => !perUnitPriceMap.has(a));
+      if (missingAsins.length > 0) {
+        console.log(`[orders-sync] Fetching listing prices from SP-API for ${missingAsins.length} ASINs`);
+        const apiPrices = await getMyPriceForASINs(missingAsins);
+        for (const [asin, price] of apiPrices) {
+          perUnitPriceMap.set(asin, price);
+        }
+      }
+
       let pricesFilled = 0;
       for (const item of zeroPriceItems) {
         const perUnit = perUnitPriceMap.get(item.asin);
@@ -175,14 +223,14 @@ export async function syncOrders(sinceOverride?: string): Promise<{
           pricesFilled++;
         }
       }
-      console.log(`[orders-sync] Filled ${pricesFilled} pending order prices from last known prices`);
+      console.log(`[orders-sync] Filled ${pricesFilled} pending order prices (${missingAsins.length} from SP-API Pricing)`);
     }
 
     // Estimate fees for new items that don't have them yet
     console.log(`[orders-sync] Estimating fees for new items...`);
     const { data: unfeedItems } = await supabase
       .from("order_items")
-      .select("order_item_id, asin, qty, item_price_gross, item_tax, promo_discount")
+      .select("order_item_id, asin, sku, qty, item_price_gross, item_tax, promo_discount")
       .is("estimated_fees", null)
       .not("asin", "is", null)
       .gt("item_price_gross", 0)
@@ -192,21 +240,29 @@ export async function syncOrders(sinceOverride?: string): Promise<{
     const feeCache = new Map<string, Record<string, number>>();
     let feesEstimated = 0;
 
-    // Load COGS for profit calculation
-    const { data: cogsData } = await supabase
-      .from("cogs_periods")
-      .select("asin, total_cogs")
-      .is("valid_to", null);
+    // Load COGS and product VAT rates for profit calculation
+    const [{ data: cogsData }, { data: productData }] = await Promise.all([
+      supabase.from("cogs_periods").select("asin, total_cogs").is("valid_to", null),
+      supabase.from("products").select("sku, asin, vat_rate"),
+    ]);
     const cogsMap = new Map((cogsData ?? []).map((c) => [c.asin, parseFloat(c.total_cogs)]));
+    const skuToVatRate = new Map((productData ?? []).map((p) => [p.sku, parseFloat(String(p.vat_rate ?? "0.20"))]));
 
     for (const item of unfeedItems ?? []) {
-      const price = parseFloat(String(item.item_price_gross));
-      const cacheKey = `${item.asin}:${price.toFixed(2)}`;
+      const lineTotal = parseFloat(String(item.item_price_gross));
+      const qty = item.qty ?? 1;
+      const unitPrice = getPerUnitPrice(lineTotal, qty);
+      const sku = item.sku ? String(item.sku) : null;
+      const cacheKey = `${sku ?? item.asin}:${unitPrice.toFixed(2)}`;
 
       let fees = feeCache.get(cacheKey);
       if (!fees) {
         try {
-          const estimate = await getFeesEstimateForASIN(item.asin, price);
+          const estimate = await getFeesEstimateForItem({
+            asin: item.asin,
+            sellerSku: sku,
+            price: unitPrice,
+          });
           if (estimate) {
             fees = {
               totalFees: estimate.totalFees,
@@ -227,17 +283,22 @@ export async function syncOrders(sinceOverride?: string): Promise<{
       }
 
       if (fees) {
-        const tax = parseFloat(String(item.item_tax ?? 0));
+        const vatRate = skuToVatRate.get(item.sku) ?? 0.20;
+        let tax = parseFloat(String(item.item_tax ?? 0));
+        if (tax === 0 && lineTotal > 0) {
+          tax = lineTotal * (vatRate / (1 + vatRate));
+        }
         const promo = parseFloat(String(item.promo_discount ?? 0));
         const cogs = cogsMap.get(item.asin) ?? 0;
-        const qty = item.qty ?? 1;
-        const profit = price - tax - promo - (fees.totalFees * qty) - (cogs * qty);
+        const feeExVat = fees.totalFees / (1 + vatRate);
+        const profit = lineTotal - tax - promo - (feeExVat * qty) - (cogs * qty);
 
         await supabase
           .from("order_items")
           .update({
             estimated_fees: fees,
             estimated_profit: profit,
+            cogs_snapshot: cogs,
           })
           .eq("order_item_id", item.order_item_id);
         feesEstimated++;

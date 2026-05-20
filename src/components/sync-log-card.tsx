@@ -24,20 +24,20 @@ function timeAgo(dateStr: string): string {
 function StatusIcon({ status }: { status: string }) {
   if (status === "success") {
     return (
-      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-50">
+      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-50 dark:bg-emerald-950">
         <CheckCircle2 className="h-4 w-4 text-emerald-500" />
       </div>
     );
   }
   if (status === "error") {
     return (
-      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-50">
+      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-50 dark:bg-rose-950">
         <XCircle className="h-4 w-4 text-rose-500" />
       </div>
     );
   }
   return (
-    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-sky-50">
+    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-sky-50 dark:bg-sky-950">
       <Loader2 className="h-4 w-4 text-sky-500 animate-spin" />
     </div>
   );
@@ -48,8 +48,8 @@ export function SyncLogCard({ logs }: { logs: SyncLogEntry[] }) {
     <Card className="overflow-hidden shadow-card ring-1 ring-border/50">
       <CardHeader className="pb-4">
         <CardTitle className="flex items-center gap-2.5 text-sm font-semibold">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-50">
-            <Activity className="h-4 w-4 text-violet-600" />
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-50 dark:bg-violet-950">
+            <Activity className="h-4 w-4 text-violet-600 dark:text-violet-400" />
           </div>
           Sync Activity
         </CardTitle>
@@ -57,7 +57,7 @@ export function SyncLogCard({ logs }: { logs: SyncLogEntry[] }) {
       <CardContent>
         {logs.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-center">
-            <div className="rounded-2xl bg-violet-50 p-4 mb-3">
+            <div className="rounded-2xl bg-violet-50 dark:bg-violet-950 p-4 mb-3">
               <Activity className="h-5 w-5 text-violet-400" />
             </div>
             <p className="text-sm font-semibold text-foreground">No syncs yet</p>
@@ -83,7 +83,7 @@ export function SyncLogCard({ logs }: { logs: SyncLogEntry[] }) {
                     </span>
                   </div>
                   {log.error ? (
-                    <p className="text-xs text-rose-600 truncate">{log.error}</p>
+                    <p className="text-xs text-rose-600 dark:text-rose-400 truncate">{log.error}</p>
                   ) : (
                     <p className="text-xs text-muted-foreground">
                       {log.rows_written.toLocaleString()} rows written

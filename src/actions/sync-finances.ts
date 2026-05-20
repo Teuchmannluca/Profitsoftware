@@ -1,19 +1,21 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import { getShipmentEvents } from "@/lib/sp-api/finances";
-import type { ShipmentEvent, FinancialShipmentItem } from "@/lib/sp-api/types";
+import type { FinancialShipmentItem } from "@/lib/sp-api/types";
 
-function parseItemFees(item: FinancialShipmentItem) {
+export function parseItemFees(item: FinancialShipmentItem) {
   const feeBreakdown: Record<string, number> = {};
-  let totalFees = 0;
+  const qty = item.QuantityShipped > 0 ? item.QuantityShipped : 1;
+  let lineTotalFees = 0;
 
   for (const fee of item.ItemFeeList ?? []) {
     const amount = Math.abs(fee.FeeAmount.Amount);
-    feeBreakdown[fee.FeeType] = amount;
-    totalFees += amount;
+    feeBreakdown[fee.FeeType] = amount / qty;
+    lineTotalFees += amount;
   }
 
   return {
-    totalFees,
+    feeBasis: "per_unit",
+    totalFees: lineTotalFees / qty,
     referralFee: feeBreakdown["Commission"] ?? feeBreakdown["ReferralFee"] ?? 0,
     fbaFee: feeBreakdown["FBAPerUnitFulfillmentFee"] ?? feeBreakdown["FBAFees"] ?? 0,
     closingFee: feeBreakdown["VariableClosingFee"] ?? 0,
@@ -71,6 +73,16 @@ export async function syncFinances(): Promise<{
     const events = await getShipmentEvents(since);
     console.log(`[finances] Got ${events.length} shipment events`);
 
+    // Load VAT settings — needed to strip reclaimable VAT from fees
+    const { data: vatSettings } = await supabase
+      .from("business_settings")
+      .select("vat_status, vat_rate")
+      .eq("id", 1)
+      .single();
+
+    const vatRate = parseFloat(String(vatSettings?.vat_rate ?? "0.20"));
+    const isVatRegistered = vatSettings?.vat_status === "standard";
+
     // Load COGS for profit calculation
     const { data: cogsData } = await supabase
       .from("cogs_periods")
@@ -97,8 +109,14 @@ export async function syncFinances(): Promise<{
         const tax = charges["Tax"] ?? 0;
         const asin = skuToAsin.get(item.SellerSKU);
         const cogs = asin ? cogsMap.get(asin) ?? 0 : 0;
+        const qty = item.QuantityShipped;
 
-        const actualProfit = principal - tax - actualFees.totalFees - (cogs * item.QuantityShipped);
+        // Finance API: Principal is already ex-VAT, fees are inc-VAT.
+        // VAT-registered sellers reclaim VAT on fees → use ex-VAT fee cost.
+        const feePerUnit = isVatRegistered
+          ? actualFees.totalFees / (1 + vatRate)
+          : actualFees.totalFees;
+        const actualProfit = principal - (feePerUnit * qty) - (cogs * qty);
 
         // Update order_items by (amazon_order_id + sku)
         const { error: updateErr } = await supabase

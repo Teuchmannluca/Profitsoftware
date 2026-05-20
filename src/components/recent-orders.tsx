@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/status-badge";
 import { Package, TrendingUp } from "lucide-react";
@@ -39,8 +40,8 @@ export function RecentOrders({ orders }: { orders: OrderWithItems[] }) {
       <CardHeader className="pb-4">
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2.5 text-sm font-semibold">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50">
-              <Package className="h-4 w-4 text-indigo-600" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 dark:bg-indigo-950">
+              <Package className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
             </div>
             Recent Orders
           </CardTitle>
@@ -57,7 +58,7 @@ export function RecentOrders({ orders }: { orders: OrderWithItems[] }) {
       <CardContent className="p-0">
         {orders.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="rounded-2xl bg-indigo-50 p-4 mb-4">
+            <div className="rounded-2xl bg-indigo-50 dark:bg-indigo-950 p-4 mb-4">
               <Package className="h-6 w-6 text-indigo-400" />
             </div>
             <p className="text-sm font-semibold text-foreground">No orders yet</p>
@@ -105,25 +106,29 @@ export function RecentOrders({ orders }: { orders: OrderWithItems[] }) {
                         className="flex items-center gap-3 rounded-xl bg-card p-2.5 ring-1 ring-border/40"
                       >
                         {/* Product image */}
-                        {item.image_url ? (
-                          <Image
-                            src={item.image_url}
-                            alt={item.title ?? item.sku}
-                            width={48}
-                            height={48}
-                            className="rounded-lg object-cover ring-1 ring-border/50 shrink-0"
-                          />
-                        ) : (
-                          <div className="h-12 w-12 rounded-lg bg-muted flex items-center justify-center ring-1 ring-border/50 shrink-0">
-                            <Package className="h-4 w-4 text-muted-foreground/40" />
-                          </div>
-                        )}
+                        <Link href={item.asin ? `/product/${item.asin}` : "#"} className="shrink-0">
+                          {item.image_url ? (
+                            <Image
+                              src={item.image_url}
+                              alt={item.title ?? item.sku}
+                              width={48}
+                              height={48}
+                              className="rounded-lg object-cover ring-1 ring-border/50 hover:ring-indigo-300 transition-all"
+                            />
+                          ) : (
+                            <div className="h-12 w-12 rounded-lg bg-muted flex items-center justify-center ring-1 ring-border/50 hover:ring-indigo-300 transition-all">
+                              <Package className="h-4 w-4 text-muted-foreground/40" />
+                            </div>
+                          )}
+                        </Link>
 
                         {/* Product info */}
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-semibold text-foreground truncate">
-                            {item.title ?? item.sku}
-                          </p>
+                          <Link href={item.asin ? `/product/${item.asin}` : "#"}>
+                            <p className="text-xs font-semibold text-foreground truncate hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
+                              {item.title ?? item.sku}
+                            </p>
+                          </Link>
                           <p className="text-[10px] text-muted-foreground font-mono mt-0.5">
                             {item.asin ?? item.sku}
                           </p>
@@ -163,7 +168,7 @@ export function RecentOrders({ orders }: { orders: OrderWithItems[] }) {
                         <div className="text-right shrink-0 w-20">
                           <p
                             className={`text-sm font-bold font-mono ${
-                              isProfitable ? "text-emerald-600" : "text-rose-600"
+                              isProfitable ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
                             }`}
                           >
                             {formatMoney(profit)}

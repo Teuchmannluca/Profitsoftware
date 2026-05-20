@@ -37,3 +37,32 @@ export async function setProductVat(
 ) {
   return _setVat(...args);
 }
+
+export async function setProductActive(
+  sku: string,
+  active: boolean
+): Promise<{ success: boolean; error?: string }> {
+  const { createServiceClient } = await import("@/lib/supabase/service");
+  const supabase = createServiceClient();
+  const { error } = await supabase
+    .from("products")
+    .update({ active })
+    .eq("sku", sku);
+  if (error) return { success: false, error: error.message };
+  return { success: true };
+}
+
+export async function setProductsActive(
+  skus: string[],
+  active: boolean
+): Promise<{ success: boolean; error?: string }> {
+  if (skus.length === 0) return { success: true };
+  const { createServiceClient } = await import("@/lib/supabase/service");
+  const supabase = createServiceClient();
+  const { error } = await supabase
+    .from("products")
+    .update({ active })
+    .in("sku", skus);
+  if (error) return { success: false, error: error.message };
+  return { success: true };
+}

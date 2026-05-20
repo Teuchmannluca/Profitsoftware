@@ -136,6 +136,14 @@ export async function getProductInsight(asin: string): Promise<ProductInsight | 
     .gte("date", fromDate)
     .order("date", { ascending: true });
 
+  // Load VAT settings for fee normalisation
+  const { data: vatSettings } = await supabase
+    .from("business_settings")
+    .select("vat_rate")
+    .eq("id", 1)
+    .single();
+  const vatRate = parseFloat(String(vatSettings?.vat_rate ?? "0.20"));
+
   // Aggregate totals
   let grossSales = 0;
   let vatCollected = 0;
@@ -163,7 +171,10 @@ export async function getProductInsight(asin: string): Promise<ProductInsight | 
     const fees =
       (item.actual_fees as Record<string, unknown>) ??
       (item.estimated_fees as Record<string, unknown>);
-    const perUnitFee = parseFloat(String(fees?.totalFees ?? "0"));
+    const perUnitFeeRaw = parseFloat(String(fees?.totalFees ?? "0"));
+    // Finance API actual_fees are inc-VAT; normalise to ex-VAT
+    const isActualFee = item.actual_fees != null;
+    const perUnitFee = isActualFee ? perUnitFeeRaw / (1 + vatRate) : perUnitFeeRaw;
     totalFees += perUnitFee * Number(item.qty ?? 0);
   }
 
@@ -198,10 +209,13 @@ export async function getProductInsight(asin: string): Promise<ProductInsight | 
       parseFloat(String(item.promo_discount ?? "0"));
     entry.orders.add(String(item.amazon_order_id));
 
-    const fees =
+    const mFees =
       (item.actual_fees as Record<string, unknown>) ??
       (item.estimated_fees as Record<string, unknown>);
-    entry.fees += parseFloat(String(fees?.totalFees ?? "0")) * qty;
+    const mFeeRaw = parseFloat(String(mFees?.totalFees ?? "0"));
+    const mIsActual = item.actual_fees != null;
+    const mFeeExVat = mIsActual ? mFeeRaw / (1 + vatRate) : mFeeRaw;
+    entry.fees += mFeeExVat * qty;
     entry.cogs += unitCogs * qty;
   }
 
@@ -259,12 +273,15 @@ export async function getProductInsight(asin: string): Promise<ProductInsight | 
     return new Date(bDate).getTime() - new Date(aDate).getTime();
   });
 
-  for (const item of sortedItems.slice(0, 20)) {
+  for (const item of sortedItems) {
     const order = item.orders as unknown as { purchase_date: string; order_status: string };
-    const fees =
+    const rFees =
       (item.actual_fees as Record<string, unknown>) ??
       (item.estimated_fees as Record<string, unknown>);
-    const feesTotal = parseFloat(String(fees?.totalFees ?? "0")) * Number(item.qty ?? 0);
+    const rFeeRaw = parseFloat(String(rFees?.totalFees ?? "0"));
+    const rIsActual = item.actual_fees != null;
+    const rFeeExVat = rIsActual ? rFeeRaw / (1 + vatRate) : rFeeRaw;
+    const feesTotal = rFeeExVat * Number(item.qty ?? 0);
 
     recentOrders.push({
       amazonOrderId: String(item.amazon_order_id),

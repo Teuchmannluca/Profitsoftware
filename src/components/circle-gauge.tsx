@@ -19,9 +19,9 @@ export function CircleGauge({
   color,
   gradient,
   shadow,
-  size = 140,
+  size = 220,
 }: CircleGaugeProps) {
-  const strokeWidth = 10;
+  const strokeWidth = 14;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const pct = max > 0 ? Math.min(value / max, 1) : 0;
@@ -29,7 +29,7 @@ export function CircleGauge({
 
   return (
     <div
-      className={`relative flex flex-col items-center gap-3 rounded-2xl bg-card p-6 transition-all duration-200 hover:-translate-y-0.5 ${shadow} hover:shadow-card-hover ring-1 ring-border/50`}
+      className={`relative flex flex-col items-center gap-4 rounded-3xl bg-card p-8 ${shadow} ring-1 ring-border/50`}
     >
       <div className="relative" style={{ width: size, height: size }}>
         <svg
@@ -58,21 +58,21 @@ export function CircleGauge({
             strokeDasharray={circumference}
             strokeDashoffset={offset}
             className="transition-all duration-1000 ease-out"
-            style={{ filter: `drop-shadow(0 0 8px ${color}50)` }}
+            style={{ filter: `drop-shadow(0 0 12px ${color}50)` }}
           />
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-2xl font-bold tracking-tight font-mono text-foreground">
+          <span className="text-4xl font-bold tracking-tight font-mono text-foreground">
             {formattedValue}
           </span>
           {subtitle && (
-            <span className="text-[10px] text-muted-foreground mt-0.5 font-medium uppercase tracking-wider">
+            <span className="text-xs text-muted-foreground mt-1 font-semibold uppercase tracking-widest">
               {subtitle}
             </span>
           )}
         </div>
       </div>
-      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+      <span className="text-sm font-bold text-muted-foreground uppercase tracking-widest">
         {label}
       </span>
     </div>

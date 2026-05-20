@@ -20,16 +20,42 @@ export async function getFeesEstimateForASIN(
   asin: string,
   price: number
 ): Promise<FeeEstimateParsed | null> {
+  return getFeesEstimateForItem({ asin, price });
+}
+
+export async function getFeesEstimateForSKU(
+  sellerSku: string,
+  asin: string,
+  price: number
+): Promise<FeeEstimateParsed | null> {
+  return getFeesEstimateForItem({ sellerSku, asin, price });
+}
+
+export async function getFeesEstimateForItem({
+  sellerSku,
+  asin,
+  price,
+}: {
+  sellerSku?: string | null;
+  asin: string;
+  price: number;
+}): Promise<FeeEstimateParsed | null> {
   const marketplaceId = process.env.SP_API_MARKETPLACE_ID!;
   const token = await refreshAccessToken();
+  const useSku = Boolean(sellerSku);
+  const idType = useSku ? "SellerSKU" : "ASIN";
+  const idValue = useSku ? sellerSku! : asin;
+  const path = useSku
+    ? `listings/${encodeURIComponent(sellerSku!)}/feesEstimate`
+    : `items/${asin}/feesEstimate`;
 
   const body = {
     FeesEstimateRequest: {
       MarketplaceId: marketplaceId,
-      IdType: "ASIN",
-      IdValue: asin,
+      IdType: idType,
+      IdValue: idValue,
       IsAmazonFulfilled: true,
-      Identifier: asin,
+      Identifier: idValue,
       PriceToEstimateFees: {
         ListingPrice: {
           CurrencyCode: "GBP",
@@ -40,7 +66,7 @@ export async function getFeesEstimateForASIN(
   };
 
   const response = await fetch(
-    `${BASE_URL}/products/fees/v0/items/${asin}/feesEstimate`,
+    `${BASE_URL}/products/fees/v0/${path}`,
     {
       method: "POST",
       headers: {

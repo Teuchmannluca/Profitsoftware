@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { mapSpApiOrderToRow, mapSpApiItemToRow } from "@/actions/sync-orders";
+import {
+  getPerUnitPrice,
+  mapSpApiOrderToRow,
+  mapSpApiItemToRow,
+} from "@/actions/sync-orders";
 
 describe("mapSpApiOrderToRow", () => {
   it("maps SP-API order to database row", () => {
@@ -66,5 +70,17 @@ describe("mapSpApiItemToRow", () => {
     expect(row.item_tax).toBe(0);
     expect(row.shipping_price).toBe(0);
     expect(row.promo_discount).toBe(0);
+  });
+});
+
+describe("getPerUnitPrice", () => {
+  it("normalizes Amazon order item line totals to per-unit prices for fee estimates", () => {
+    expect(getPerUnitPrice(24.99, 2)).toBeCloseTo(12.495);
+    expect(getPerUnitPrice(19.99, 1)).toBeCloseTo(19.99);
+  });
+
+  it("falls back to the line total when quantity is missing or invalid", () => {
+    expect(getPerUnitPrice(19.99, null)).toBe(19.99);
+    expect(getPerUnitPrice(19.99, 0)).toBe(19.99);
   });
 });

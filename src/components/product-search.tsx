@@ -37,7 +37,7 @@ export function ProductSearch({ products }: { products: ProductCard[] }) {
       {/* Product grid */}
       {filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-center">
-          <div className="rounded-2xl bg-indigo-50 p-4 mb-4">
+          <div className="rounded-2xl bg-indigo-50 dark:bg-indigo-950 p-4 mb-4">
             <Package className="h-6 w-6 text-indigo-400" />
           </div>
           <p className="text-sm font-semibold text-foreground">No products found</p>

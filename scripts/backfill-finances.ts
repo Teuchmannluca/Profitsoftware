@@ -123,16 +123,18 @@ async function fetchShipmentEvents(
 
 function parseItemFees(item: ShipmentItem) {
   const feeBreakdown: Record<string, number> = {};
-  let totalFees = 0;
+  const qty = item.QuantityShipped > 0 ? item.QuantityShipped : 1;
+  let lineTotalFees = 0;
 
   for (const fee of item.ItemFeeList ?? []) {
     const amount = Math.abs(fee.FeeAmount.Amount);
-    feeBreakdown[fee.FeeType] = amount;
-    totalFees += amount;
+    feeBreakdown[fee.FeeType] = amount / qty;
+    lineTotalFees += amount;
   }
 
   return {
-    totalFees,
+    feeBasis: "per_unit",
+    totalFees: lineTotalFees / qty,
     referralFee: feeBreakdown["Commission"] ?? feeBreakdown["ReferralFee"] ?? 0,
     fbaFee: feeBreakdown["FBAPerUnitFulfillmentFee"] ?? feeBreakdown["FBAFees"] ?? 0,
     closingFee: feeBreakdown["VariableClosingFee"] ?? 0,
@@ -163,6 +165,17 @@ async function main() {
   }
   const skuToAsin = new Map(productData?.map((p) => [p.sku, p.asin]) ?? []);
   console.log(`  Loaded ${skuToAsin.size} SKU -> ASIN mappings\n`);
+
+  // Load VAT settings
+  console.log("Loading VAT settings...");
+  const { data: vatSettings } = await supabase
+    .from("business_settings")
+    .select("vat_status, vat_rate")
+    .eq("id", 1)
+    .single();
+  const vatRate = parseFloat(String(vatSettings?.vat_rate ?? "0.20"));
+  const isVatRegistered = vatSettings?.vat_status === "standard";
+  console.log(`  VAT status: ${vatSettings?.vat_status}, rate: ${vatRate}\n`);
 
   // Load COGS for profit calculation
   console.log("Loading COGS data...");
@@ -231,8 +244,13 @@ async function main() {
       const tax = charges["Tax"] ?? 0;
       const asin = skuToAsin.get(item.SellerSKU);
       const cogs = asin ? cogsMap.get(asin) ?? 0 : 0;
+      const qty = item.QuantityShipped;
 
-      const actualProfit = principal - tax - actualFees.totalFees - (cogs * item.QuantityShipped);
+      // Principal is already ex-VAT. Fees from Finance API are inc-VAT.
+      const feePerUnit = isVatRegistered
+        ? actualFees.totalFees / (1 + vatRate)
+        : actualFees.totalFees;
+      const actualProfit = principal - (feePerUnit * qty) - (cogs * qty);
 
       const { error: updateErr } = await supabase
         .from("order_items")

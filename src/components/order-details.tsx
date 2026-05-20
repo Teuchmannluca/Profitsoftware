@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/status-badge";
 import { Input } from "@/components/ui/input";
@@ -31,6 +32,8 @@ interface OrderItem {
   promo_discount: number;
   estimated_profit: number | null;
   cogs_snapshot: number | null;
+  fees_total: number;
+  vat_rate: number;
   refund_status: string;
 }
 
@@ -99,17 +102,26 @@ export function OrderDetails({ orders }: { orders: OrderWithItems[] }) {
     (sum, o) => sum + o.items.reduce((is, i) => is + i.item_price_gross, 0),
     0
   );
+  function deriveTax(i: OrderItem) {
+    return i.item_tax > 0 ? i.item_tax : i.item_price_gross * (i.vat_rate / (1 + i.vat_rate));
+  }
+  function liveProfit(i: OrderItem) {
+    const tax = deriveTax(i);
+    const feeExVat = i.fees_total / (1 + i.vat_rate);
+    const cogs = i.cogs_snapshot ?? 0;
+    return i.item_price_gross - tax - i.promo_discount - feeExVat * i.qty - cogs * i.qty;
+  }
   const grandNet = filtered.reduce(
     (sum, o) =>
       sum +
       o.items.reduce(
-        (is, i) => is + i.item_price_gross - i.item_tax - i.promo_discount,
+        (is, i) => is + i.item_price_gross - deriveTax(i) - i.promo_discount,
         0
       ),
     0
   );
   const grandProfit = filtered.reduce(
-    (sum, o) => sum + o.items.reduce((is, i) => is + (i.estimated_profit ?? 0), 0),
+    (sum, o) => sum + o.items.reduce((is, i) => is + liveProfit(i), 0),
     0
   );
 
@@ -118,8 +130,8 @@ export function OrderDetails({ orders }: { orders: OrderWithItems[] }) {
       <CardHeader className="pb-4">
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2.5 text-sm font-semibold">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-50">
-              <Package className="h-4 w-4 text-sky-600" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sky-50 dark:bg-sky-950">
+              <Package className="h-4 w-4 text-sky-600 dark:text-sky-400" />
             </div>
             Order History
           </CardTitle>
@@ -166,7 +178,7 @@ export function OrderDetails({ orders }: { orders: OrderWithItems[] }) {
               <span className="text-xs text-muted-foreground">Profit:</span>
               <span
                 className={`text-xs font-bold font-mono ${
-                  grandProfit >= 0 ? "text-emerald-600" : "text-rose-600"
+                  grandProfit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
                 }`}
               >
                 {formatMoney(grandProfit)}
@@ -178,7 +190,7 @@ export function OrderDetails({ orders }: { orders: OrderWithItems[] }) {
       <CardContent className="p-0">
         {orders.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="rounded-2xl bg-sky-50 p-4 mb-4">
+            <div className="rounded-2xl bg-sky-50 dark:bg-sky-950 p-4 mb-4">
               <Package className="h-6 w-6 text-sky-400" />
             </div>
             <p className="text-sm font-semibold text-foreground">No orders found</p>
@@ -194,11 +206,11 @@ export function OrderDetails({ orders }: { orders: OrderWithItems[] }) {
                 0
               );
               const orderNet = order.items.reduce(
-                (sum, i) => sum + i.item_price_gross - i.item_tax - i.promo_discount,
+                (sum, i) => sum + i.item_price_gross - deriveTax(i) - i.promo_discount,
                 0
               );
               const orderProfit = order.items.reduce(
-                (sum, i) => sum + (i.estimated_profit ?? 0),
+                (sum, i) => sum + liveProfit(i),
                 0
               );
               const orderQty = order.items.reduce((sum, i) => sum + i.qty, 0);
@@ -219,13 +231,13 @@ export function OrderDetails({ orders }: { orders: OrderWithItems[] }) {
                         status={order.fulfillment_channel === "AFN" ? "FBA" : "FBM"}
                       />
                       {order.is_business_order && (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full ring-1 ring-blue-600/15">
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-950 px-2 py-0.5 rounded-full ring-1 ring-blue-600/15 dark:ring-blue-400/15">
                           <Briefcase className="h-2.5 w-2.5" />
                           B2B
                         </span>
                       )}
                       {order.is_prime && (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-sky-700 bg-sky-50 px-2 py-0.5 rounded-full ring-1 ring-sky-600/15">
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-sky-700 dark:text-sky-400 bg-sky-50 dark:bg-sky-950 px-2 py-0.5 rounded-full ring-1 ring-sky-600/15 dark:ring-sky-400/15">
                           <Crown className="h-2.5 w-2.5" />
                           Prime
                         </span>
@@ -267,7 +279,7 @@ export function OrderDetails({ orders }: { orders: OrderWithItems[] }) {
                       <PiggyBank className="h-3 w-3 text-emerald-500" />
                       <span
                         className={`text-[11px] font-mono font-semibold ${
-                          orderProfit >= 0 ? "text-emerald-600" : "text-rose-600"
+                          orderProfit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
                         }`}
                       >
                         {formatMoney(orderProfit)}
@@ -286,9 +298,12 @@ export function OrderDetails({ orders }: { orders: OrderWithItems[] }) {
                   {/* Order items */}
                   <div className="space-y-2">
                     {order.items.map((item, idx) => {
+                      const displayTax = item.item_tax > 0
+                        ? item.item_tax
+                        : item.item_price_gross * (item.vat_rate / (1 + item.vat_rate));
                       const netPrice =
-                        item.item_price_gross - item.item_tax - item.promo_discount;
-                      const profit = item.estimated_profit ?? 0;
+                        item.item_price_gross - displayTax - item.promo_discount;
+                      const profit = liveProfit(item);
                       const isProfitable = profit >= 0;
                       const hasRefund = item.refund_status !== "none";
 
@@ -296,34 +311,43 @@ export function OrderDetails({ orders }: { orders: OrderWithItems[] }) {
                         <div
                           key={idx}
                           className={`flex items-center gap-3 rounded-xl bg-card p-3 ring-1 ${
-                            hasRefund ? "ring-rose-200 bg-rose-50/30" : "ring-border/40"
+                            hasRefund ? "ring-rose-200 dark:ring-rose-900 bg-rose-50/30 dark:bg-rose-950/30" : "ring-border/40"
                           }`}
                         >
                           {/* Product image */}
-                          {item.image_url ? (
-                            <Image
-                              src={item.image_url}
-                              alt={item.title ?? item.sku}
-                              width={64}
-                              height={64}
-                              className="rounded-xl object-cover ring-1 ring-border/50 shrink-0"
-                            />
-                          ) : (
-                            <div className="h-16 w-16 rounded-xl bg-muted flex items-center justify-center ring-1 ring-border/50 shrink-0">
-                              <Package className="h-5 w-5 text-muted-foreground/40" />
-                            </div>
-                          )}
+                          <Link href={item.asin ? `/product/${item.asin}` : "#"} className="shrink-0">
+                            {item.image_url ? (
+                              <Image
+                                src={item.image_url}
+                                alt={item.title ?? item.sku}
+                                width={64}
+                                height={64}
+                                className="rounded-xl object-cover ring-1 ring-border/50 hover:ring-indigo-300 transition-all"
+                              />
+                            ) : (
+                              <div className="h-16 w-16 rounded-xl bg-muted flex items-center justify-center ring-1 ring-border/50 hover:ring-indigo-300 transition-all">
+                                <Package className="h-5 w-5 text-muted-foreground/40" />
+                              </div>
+                            )}
+                          </Link>
 
                           {/* Product info */}
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold text-foreground truncate">
-                              {item.title ?? item.sku}
-                            </p>
+                            <Link href={item.asin ? `/product/${item.asin}` : "#"} className="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
+                              <p className="text-sm font-semibold text-foreground truncate hover:text-indigo-600 dark:hover:text-indigo-400">
+                                {item.title ?? item.sku}
+                              </p>
+                            </Link>
                             <p className="text-[11px] text-muted-foreground font-mono mt-0.5">
                               {item.asin ?? item.sku}
+                              {item.vat_rate != null && (
+                                <span className="ml-2 inline-flex text-[9px] font-bold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950 px-1.5 py-0.5 rounded-md ring-1 ring-amber-600/15 dark:ring-amber-400/15">
+                                  {Math.round(item.vat_rate * 100)}% VAT
+                                </span>
+                              )}
                             </p>
                             {hasRefund && (
-                              <span className="inline-flex mt-1 text-[10px] font-semibold text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded-md ring-1 ring-rose-600/15">
+                              <span className="inline-flex mt-1 text-[10px] font-semibold text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-950 px-1.5 py-0.5 rounded-md ring-1 ring-rose-600/15 dark:ring-rose-400/15">
                                 Refunded
                               </span>
                             )}
@@ -352,7 +376,7 @@ export function OrderDetails({ orders }: { orders: OrderWithItems[] }) {
                           {/* Tax */}
                           <div className="text-right shrink-0 w-16">
                             <p className="text-sm font-bold font-mono text-foreground">
-                              {formatMoney(item.item_tax)}
+                              {formatMoney(displayTax)}
                             </p>
                             <p className="text-[9px] text-muted-foreground uppercase tracking-wider font-semibold">
                               tax
@@ -393,7 +417,7 @@ export function OrderDetails({ orders }: { orders: OrderWithItems[] }) {
                           <div className="text-right shrink-0 w-20">
                             <p
                               className={`text-sm font-bold font-mono ${
-                                isProfitable ? "text-emerald-600" : "text-rose-600"
+                                isProfitable ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
                               }`}
                             >
                               {formatMoney(profit)}
