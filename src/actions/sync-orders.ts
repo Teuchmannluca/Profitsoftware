@@ -100,11 +100,36 @@ export async function syncOrders(sinceOverride?: string): Promise<{
     }
     console.log(`[orders-sync] Upserted ${ordersWritten} orders`);
 
+    // Find orders stuck with 0 items from previous failed syncs
+    const { data: allRecentOrders } = await supabase
+      .from("orders")
+      .select("amazon_order_id")
+      .gte("purchase_date", new Date(Date.now() - 7 * 86400000).toISOString());
+    const allRecentIds = (allRecentOrders ?? []).map((o) => o.amazon_order_id);
+    const { data: itemCounts } = allRecentIds.length > 0
+      ? await supabase
+          .from("order_items")
+          .select("amazon_order_id")
+          .in("amazon_order_id", allRecentIds)
+      : { data: [] };
+    const idsWithItems = new Set((itemCounts ?? []).map((r) => r.amazon_order_id));
+    const stuckOrders = allRecentIds.filter((id) => !idsWithItems.has(id));
+    if (stuckOrders.length > 0) {
+      console.log(`[orders-sync] Found ${stuckOrders.length} orders with 0 items from previous syncs, will re-fetch`);
+    }
+
+    // Merge stuck orders into the fetch list (avoid duplicates)
+    const currentIds = new Set(Orders.map((o) => o.AmazonOrderId));
+    const extraOrders = stuckOrders
+      .filter((id) => !currentIds.has(id))
+      .map((id) => ({ AmazonOrderId: id } as SpApiOrder));
+    const allOrdersToFetch = [...Orders, ...extraOrders];
+
     // Fetch items for each order — burst limit: 30, then 0.5 req/sec
     // Use burst for first 25 orders (no throttle), then throttle
     const retryCount = new Map<string, number>();
-    for (let i = 0; i < Orders.length; i++) {
-      const order = Orders[i];
+    for (let i = 0; i < allOrdersToFetch.length; i++) {
+      const order = allOrdersToFetch[i];
       try {
         const { OrderItems } = await getOrderItems(order.AmazonOrderId);
         const itemRows = OrderItems.map((item) =>
@@ -141,18 +166,18 @@ export async function syncOrders(sinceOverride?: string): Promise<{
       }
 
       if ((i + 1) % 25 === 0) {
-        console.log(`[orders-sync] Progress: ${i + 1}/${Orders.length} orders processed, ${itemsWritten} items`);
+        console.log(`[orders-sync] Progress: ${i + 1}/${allOrdersToFetch.length} orders processed, ${itemsWritten} items`);
       }
     }
 
     // Re-fetch items for orders from this batch that ended up with 0 items
-    const batchOrderIds = Orders.map((o) => o.AmazonOrderId);
-    const { data: ordersWithItems } = await supabase
+    const batchOrderIds = allOrdersToFetch.map((o) => o.AmazonOrderId);
+    const { data: ordersWithItemsCheck } = await supabase
       .from("order_items")
       .select("amazon_order_id")
       .in("amazon_order_id", batchOrderIds);
-    const hasItems = new Set((ordersWithItems ?? []).map((r) => r.amazon_order_id));
-    const emptyOrders = Orders.filter((o) => !hasItems.has(o.AmazonOrderId));
+    const hasItems = new Set((ordersWithItemsCheck ?? []).map((r) => r.amazon_order_id));
+    const emptyOrders = allOrdersToFetch.filter((o) => !hasItems.has(o.AmazonOrderId));
     if (emptyOrders.length > 0) {
       console.log(`[orders-sync] Retrying item fetch for ${emptyOrders.length} orders with 0 items`);
       for (const order of emptyOrders) {
