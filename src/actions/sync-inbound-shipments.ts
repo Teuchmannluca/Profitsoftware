@@ -68,7 +68,10 @@ export async function syncInboundShipments(): Promise<{
     const shipments = await getInboundShipments([
       "WORKING",
       "SHIPPED",
+      "IN_TRANSIT",
       "RECEIVING",
+      "DELIVERED",
+      "CHECKED_IN",
       "CLOSED",
     ]);
     console.log(`[inbound-sync] Got ${shipments.length} shipments`);

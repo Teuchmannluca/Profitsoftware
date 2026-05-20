@@ -7,7 +7,7 @@ import type {
 } from "./types";
 
 export async function getInboundShipments(
-  statuses: string[] = ["WORKING", "SHIPPED", "RECEIVING"]
+  statuses: string[] = ["WORKING", "SHIPPED", "IN_TRANSIT", "RECEIVING", "DELIVERED", "CHECKED_IN"]
 ): Promise<InboundShipmentData[]> {
   const marketplaceId = process.env.SP_API_MARKETPLACE_ID!;
   const all: InboundShipmentData[] = [];
