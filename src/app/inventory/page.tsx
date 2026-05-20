@@ -5,6 +5,7 @@ import { Sidebar } from "@/components/sidebar";
 import { InventoryTable } from "@/components/inventory-table";
 import { SyncInventoryButton } from "@/components/sync-inventory-button";
 import { PageHeader } from "@/components/page-header";
+import { MainContent } from "@/components/main-content";
 
 export const dynamic = "force-dynamic";
 
@@ -79,7 +80,7 @@ export default async function InventoryPage() {
     <div className="min-h-screen">
       <Sidebar email={user.email ?? ""} />
 
-      <main className="pl-[240px]">
+      <MainContent>
         <PageHeader
           title="Inventory"
           subtitle="FBA stock levels & warehouse management"
@@ -109,7 +110,7 @@ export default async function InventoryPage() {
 
           <InventoryTable rows={rows} />
         </div>
-      </main>
+      </MainContent>
     </div>
   );
 }

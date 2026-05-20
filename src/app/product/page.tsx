@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/sidebar";
 import { PageHeader } from "@/components/page-header";
+import { MainContent } from "@/components/main-content";
 import { ProductSearch } from "@/components/product-search";
 import { getProductCards } from "@/lib/queries/product";
 
@@ -23,7 +24,7 @@ export default async function ProductPage() {
     <div className="min-h-screen">
       <Sidebar email={user.email ?? ""} />
 
-      <main className="pl-[240px]">
+      <MainContent>
         <PageHeader
           title="Product Insight"
           subtitle="Deep dive into product performance"
@@ -32,7 +33,7 @@ export default async function ProductPage() {
         <div className="p-8">
           <ProductSearch products={products} />
         </div>
-      </main>
+      </MainContent>
     </div>
   );
 }

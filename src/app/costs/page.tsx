@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/sidebar";
 import { CogsTable } from "@/components/cogs-table";
 import { PageHeader } from "@/components/page-header";
+import { MainContent } from "@/components/main-content";
 import { Receipt } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -104,7 +105,7 @@ export default async function CostsPage() {
     <div className="min-h-screen">
       <Sidebar email={user.email ?? ""} />
 
-      <main className="pl-[240px]">
+      <MainContent>
         <PageHeader
           title="Costs"
           subtitle="Product cost management & COGS tracking"
@@ -113,7 +114,7 @@ export default async function CostsPage() {
         <div className="p-8">
           <CogsTable rows={rows} historyByAsin={Object.fromEntries(historyByAsin)} />
         </div>
-      </main>
+      </MainContent>
     </div>
   );
 }

@@ -7,6 +7,7 @@ import { OrderDetails } from "@/components/order-details";
 import { PeriodFilter } from "@/components/period-filter";
 import { MonthComparison } from "@/components/month-comparison";
 import { PageHeader } from "@/components/page-header";
+import { MainContent } from "@/components/main-content";
 import { getSalesMetrics, getDateRange } from "@/lib/queries/sales";
 
 export const dynamic = "force-dynamic";
@@ -136,7 +137,7 @@ export default async function OrdersPage({
     <div className="min-h-screen">
       <Sidebar email={user.email ?? ""} />
 
-      <main className="pl-[240px]">
+      <MainContent>
         <PageHeader
           title="Sales"
           subtitle="Sales Analytics & Order History"
@@ -172,7 +173,7 @@ export default async function OrdersPage({
             />
             <StatBox
               label="Orders"
-              value={metrics.orderCount}
+              value={metrics.totalOrderCount}
               iconName="ShoppingBag"
               gradient="amber"
             />
@@ -203,7 +204,7 @@ export default async function OrdersPage({
             </div>
           </div>
         </div>
-      </main>
+      </MainContent>
     </div>
   );
 }

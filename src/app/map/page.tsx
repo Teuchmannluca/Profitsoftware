@@ -3,6 +3,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/sidebar";
 import { PageHeader } from "@/components/page-header";
+import { MainContent } from "@/components/main-content";
 import { OrderMapWrapper } from "@/components/order-map-wrapper";
 
 export const revalidate = 0;
@@ -191,7 +192,7 @@ export default async function MapPage() {
     <div className="min-h-screen">
       <Sidebar email={user.email ?? ""} />
 
-      <main className="pl-[240px]">
+      <MainContent>
         <PageHeader
           title="Order Map"
           subtitle="Geographic distribution of your orders"
@@ -242,7 +243,7 @@ export default async function MapPage() {
             <OrderMapWrapper clusters={clusters} />
           </div>
         </div>
-      </main>
+      </MainContent>
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/sidebar";
 import { PageHeader } from "@/components/page-header";
+import { MainContent } from "@/components/main-content";
 import { CircleGauge } from "@/components/circle-gauge";
 import { StatBox } from "@/components/stat-card";
 import { SyncInboundButton } from "@/components/sync-inbound-button";
@@ -64,7 +65,7 @@ export default async function CapitalPage() {
     <div className="min-h-screen">
       <Sidebar email={user.email ?? ""} />
 
-      <main className="pl-[240px]">
+      <MainContent>
         <PageHeader
           title="Capital"
           subtitle="Where your money is tied up"
@@ -218,7 +219,7 @@ export default async function CapitalPage() {
           {/* Product breakdown table */}
           <CapitalInventoryTable rows={products} />
         </div>
-      </main>
+      </MainContent>
     </div>
   );
 }

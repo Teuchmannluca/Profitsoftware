@@ -19,10 +19,13 @@ import {
   Moon,
   Sun,
   MapPin,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
+import { useState, useEffect, createContext, useContext } from "react";
 
 const navItems = [
   { label: "Dashboard", href: "/", icon: LayoutDashboard },
@@ -38,10 +41,45 @@ const navItems = [
   { label: "Reviews", href: "/reviews", icon: Star, soon: true },
 ];
 
+const SIDEBAR_KEY = "sidebar-collapsed";
+
+const SidebarContext = createContext(false);
+export function useSidebarCollapsed() {
+  return useContext(SidebarContext);
+}
+
+export function SidebarProvider({ children }: { children: React.ReactNode }) {
+  const [collapsed, setCollapsed] = useState(false);
+
+  useEffect(() => {
+    const stored = localStorage.getItem(SIDEBAR_KEY);
+    if (stored === "true") setCollapsed(true);
+  }, []);
+
+  return (
+    <SidebarContext.Provider value={collapsed}>
+      {children}
+    </SidebarContext.Provider>
+  );
+}
+
 export function Sidebar({ email }: { email: string }) {
   const pathname = usePathname();
   const router = useRouter();
   const { theme, setTheme } = useTheme();
+  const [collapsed, setCollapsed] = useState(false);
+
+  useEffect(() => {
+    const stored = localStorage.getItem(SIDEBAR_KEY);
+    if (stored === "true") setCollapsed(true);
+  }, []);
+
+  function toggle() {
+    const next = !collapsed;
+    setCollapsed(next);
+    localStorage.setItem(SIDEBAR_KEY, String(next));
+    window.dispatchEvent(new CustomEvent("sidebar-toggle", { detail: next }));
+  }
 
   const initials = email
     .split("@")[0]
@@ -56,31 +94,62 @@ export function Sidebar({ email }: { email: string }) {
     router.push("/login");
   }
 
+  const w = collapsed ? "w-[68px]" : "w-[240px]";
+
   return (
-    <aside className="fixed inset-y-0 left-0 z-50 flex w-[240px] flex-col bg-sidebar-bg border-r border-sidebar-border">
-      {/* Logo */}
-      <div className="flex h-16 items-center gap-3 px-5">
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-indigo shadow-lg shadow-indigo-500/20">
-          <BarChart3 className="h-4 w-4 text-white" />
+    <aside className={`fixed inset-y-0 left-0 z-50 flex ${w} flex-col bg-sidebar-bg border-r border-sidebar-border transition-all duration-200`}>
+      {/* Logo + Toggle */}
+      <div className="flex h-16 items-center justify-between px-3">
+        <div className={`flex items-center gap-3 ${collapsed ? "justify-center w-full" : "pl-2"}`}>
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-indigo shadow-lg shadow-indigo-500/20">
+            <BarChart3 className="h-4 w-4 text-white" />
+          </div>
+          {!collapsed && (
+            <div className="min-w-0">
+              <p className="text-sm font-bold tracking-tight text-foreground truncate">LAK & Co. Group</p>
+              <p className="text-[10px] font-medium text-muted-foreground tracking-wide uppercase">Amazon Dashboard</p>
+            </div>
+          )}
         </div>
-        <div>
-          <p className="text-sm font-bold tracking-tight text-foreground">ProfitFlow</p>
-          <p className="text-[10px] font-medium text-muted-foreground tracking-wide uppercase">Amazon UK</p>
-        </div>
+        {!collapsed && (
+          <button
+            onClick={toggle}
+            className="rounded-lg p-1.5 text-muted-foreground/50 hover:bg-muted hover:text-foreground transition-colors"
+            title="Collapse sidebar"
+          >
+            <PanelLeftClose className="h-4 w-4" />
+          </button>
+        )}
       </div>
+
+      {/* Expand button when collapsed */}
+      {collapsed && (
+        <div className="flex justify-center px-3 pb-2">
+          <button
+            onClick={toggle}
+            className="rounded-lg p-1.5 text-muted-foreground/50 hover:bg-muted hover:text-foreground transition-colors"
+            title="Expand sidebar"
+          >
+            <PanelLeftOpen className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-0.5">
-        <p className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
-          Main
-        </p>
+        {!collapsed && (
+          <p className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60">
+            Main
+          </p>
+        )}
         {navItems.map((item) => {
           const isActive = pathname === item.href;
           return (
             <Link
               key={item.href}
               href={item.soon ? "#" : item.href}
-              className={`group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-medium transition-all duration-150 ${
+              title={collapsed ? item.label : undefined}
+              className={`group relative flex items-center ${collapsed ? "justify-center" : ""} gap-3 rounded-xl ${collapsed ? "px-0 py-2.5" : "px-3 py-2.5"} text-[13px] font-medium transition-all duration-150 ${
                 isActive
                   ? "bg-sidebar-accent text-sidebar-accent-foreground"
                   : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
@@ -90,17 +159,21 @@ export function Sidebar({ email }: { email: string }) {
                 <span className="absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full bg-gradient-indigo" />
               )}
               <item.icon
-                className={`h-4 w-4 transition-colors ${
+                className={`h-4 w-4 shrink-0 transition-colors ${
                   isActive
                     ? "text-indigo-500"
                     : "text-muted-foreground/50 group-hover:text-muted-foreground"
                 }`}
               />
-              {item.label}
-              {item.soon && (
-                <span className="ml-auto text-[9px] font-bold uppercase tracking-wider text-muted-foreground/40 bg-muted px-1.5 py-0.5 rounded-md">
-                  Soon
-                </span>
+              {!collapsed && (
+                <>
+                  {item.label}
+                  {item.soon && (
+                    <span className="ml-auto text-[9px] font-bold uppercase tracking-wider text-muted-foreground/40 bg-muted px-1.5 py-0.5 rounded-md">
+                      Soon
+                    </span>
+                  )}
+                </>
               )}
             </Link>
           );
@@ -111,35 +184,45 @@ export function Sidebar({ email }: { email: string }) {
       <div className="border-t border-sidebar-border p-3 space-y-0.5">
         <Link
           href="/settings"
-          className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-medium text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground transition-all duration-150"
+          title={collapsed ? "Settings" : undefined}
+          className={`flex items-center ${collapsed ? "justify-center" : ""} gap-3 rounded-xl ${collapsed ? "px-0" : "px-3"} py-2.5 text-[13px] font-medium text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground transition-all duration-150`}
         >
-          <Settings className="h-4 w-4 text-muted-foreground/50" />
-          Settings
+          <Settings className="h-4 w-4 shrink-0 text-muted-foreground/50" />
+          {!collapsed && "Settings"}
         </Link>
         <button
           onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-          className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-medium text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground transition-all duration-150 w-full"
+          title={collapsed ? (theme === "dark" ? "Light Mode" : "Dark Mode") : undefined}
+          className={`flex items-center ${collapsed ? "justify-center" : ""} gap-3 rounded-xl ${collapsed ? "px-0" : "px-3"} py-2.5 text-[13px] font-medium text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground transition-all duration-150 w-full`}
         >
-          <Sun className="h-4 w-4 text-muted-foreground/50 dark:hidden" />
-          <Moon className="h-4 w-4 text-muted-foreground/50 hidden dark:block" />
-          <span className="dark:hidden">Dark Mode</span>
-          <span className="hidden dark:block">Light Mode</span>
+          <Sun className="h-4 w-4 shrink-0 text-muted-foreground/50 dark:hidden" />
+          <Moon className="h-4 w-4 shrink-0 text-muted-foreground/50 hidden dark:block" />
+          {!collapsed && (
+            <>
+              <span className="dark:hidden">Dark Mode</span>
+              <span className="hidden dark:block">Light Mode</span>
+            </>
+          )}
         </button>
 
-        <div className="flex items-center gap-3 rounded-xl px-3 py-2.5 mt-1 bg-muted/50">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-indigo shadow-md shadow-indigo-500/15">
+        <div className={`flex items-center ${collapsed ? "justify-center" : "gap-3"} rounded-xl ${collapsed ? "px-0" : "px-3"} py-2.5 mt-1 bg-muted/50`}>
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-indigo shadow-md shadow-indigo-500/15">
             <span className="text-[11px] font-bold text-white">{initials}</span>
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-[11px] font-medium text-foreground truncate">{email}</p>
-          </div>
-          <button
-            onClick={handleSignOut}
-            className="rounded-lg p-1.5 text-muted-foreground/50 hover:bg-rose-50 dark:hover:bg-rose-950 hover:text-rose-500 dark:hover:text-rose-400 transition-colors"
-            title="Sign out"
-          >
-            <LogOut className="h-3.5 w-3.5" />
-          </button>
+          {!collapsed && (
+            <>
+              <div className="flex-1 min-w-0">
+                <p className="text-[11px] font-medium text-foreground truncate">{email}</p>
+              </div>
+              <button
+                onClick={handleSignOut}
+                className="rounded-lg p-1.5 text-muted-foreground/50 hover:bg-rose-50 dark:hover:bg-rose-950 hover:text-rose-500 dark:hover:text-rose-400 transition-colors"
+                title="Sign out"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+              </button>
+            </>
+          )}
         </div>
       </div>
     </aside>

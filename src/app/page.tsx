@@ -11,6 +11,7 @@ import { PeriodFilter } from "@/components/period-filter";
 import { getDateRange, getSalesMetrics } from "@/lib/queries/sales";
 import { Card, CardContent } from "@/components/ui/card";
 import { TopSellersCard } from "@/components/top-sellers-card";
+import { MainContent } from "@/components/main-content";
 import Image from "next/image";
 
 export const dynamic = "force-dynamic";
@@ -170,7 +171,7 @@ export default async function DashboardPage({
     <div className="min-h-screen">
       <Sidebar email={user.email ?? ""} />
 
-      <main className="pl-[240px]">
+      <MainContent>
         <PageHeader
           title="Dashboard"
           subtitle="Your Amazon Business Performance"
@@ -213,12 +214,12 @@ export default async function DashboardPage({
                 sparkKey: "revenue",
               },
               {
-                value: metrics.orderCount,
-                prevValue: prevMetrics.orderCount,
-                max: Math.max(metrics.orderCount, 1),
+                value: metrics.totalOrderCount,
+                prevValue: prevMetrics.totalOrderCount,
+                max: Math.max(metrics.totalOrderCount, 1),
                 label: "Orders",
-                formattedValue: String(metrics.orderCount),
-                prevFormatted: String(prevMetrics.orderCount),
+                formattedValue: String(metrics.totalOrderCount),
+                prevFormatted: String(prevMetrics.totalOrderCount),
                 subtitle: "total",
                 color: "#8b5cf6",
                 gradient: "violet",
@@ -246,7 +247,7 @@ export default async function DashboardPage({
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
             <StatBox
               label="Orders"
-              value={metrics.orderCount}
+              value={metrics.totalOrderCount}
               iconName="ShoppingBag"
               gradient="indigo"
             />
@@ -408,7 +409,7 @@ export default async function DashboardPage({
             </div>
           </div>
         </div>
-      </main>
+      </MainContent>
     </div>
   );
 }

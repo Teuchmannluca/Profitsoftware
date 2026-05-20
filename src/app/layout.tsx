@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ProfitFlow — Amazon UK Dashboard",
+  title: "LAK & Co. Group — Dashboard",
   description: "Professional profit & loss tracking for Amazon FBA businesses",
 };
 

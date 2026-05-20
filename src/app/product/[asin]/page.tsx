@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import Image from "next/image";
 import { Sidebar } from "@/components/sidebar";
 import { PageHeader } from "@/components/page-header";
+import { MainContent } from "@/components/main-content";
 import { CircleGauge } from "@/components/circle-gauge";
 import { StatBox } from "@/components/stat-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -47,7 +48,7 @@ export default async function ProductDetailPage({
     return (
       <div className="min-h-screen">
         <Sidebar email={user.email ?? ""} />
-        <main className="pl-[240px]">
+        <MainContent>
           <PageHeader title="Product Insight" subtitle="Product not found" />
           <div className="p-8">
             <div className="flex flex-col items-center justify-center py-16 text-center">
@@ -62,7 +63,7 @@ export default async function ProductDetailPage({
               </p>
             </div>
           </div>
-        </main>
+        </MainContent>
       </div>
     );
   }
@@ -73,7 +74,7 @@ export default async function ProductDetailPage({
     <div className="min-h-screen">
       <Sidebar email={user.email ?? ""} />
 
-      <main className="pl-[240px]">
+      <MainContent>
         <PageHeader
           title="Product Insight"
           subtitle={product.title ?? product.asin}
@@ -485,7 +486,7 @@ export default async function ProductDetailPage({
             </CardContent>
           </Card>
         </div>
-      </main>
+      </MainContent>
     </div>
   );
 }

@@ -61,10 +61,10 @@ export default function LoginPage() {
               <BarChart3 className="h-7 w-7 text-white" />
             </div>
             <h1 className="text-2xl font-bold tracking-tight text-foreground">
-              ProfitFlow
+              LAK & Co. Group
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Amazon UK Profit & Loss Dashboard
+              Amazon Business Dashboard
             </p>
           </div>
 

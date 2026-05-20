@@ -3,6 +3,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/sidebar";
 import { PageHeader } from "@/components/page-header";
+import { MainContent } from "@/components/main-content";
 import { SettingsForm } from "@/components/settings-form";
 import { getSettings } from "@/actions/settings";
 
@@ -24,7 +25,7 @@ export default async function SettingsPage() {
     <div className="min-h-screen">
       <Sidebar email={user.email ?? ""} />
 
-      <main className="pl-[240px]">
+      <MainContent>
         <PageHeader
           title="Settings"
           subtitle="Business & VAT configuration"
@@ -33,7 +34,7 @@ export default async function SettingsPage() {
         <div className="p-8 max-w-3xl">
           <SettingsForm initialSettings={settings} />
         </div>
-      </main>
+      </MainContent>
     </div>
   );
 }

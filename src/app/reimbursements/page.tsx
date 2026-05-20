@@ -7,6 +7,7 @@ import { ReturnsTable } from "@/components/returns-table";
 import { SyncReturnsButton } from "@/components/sync-returns-button";
 import { PeriodFilter } from "@/components/period-filter";
 import { PageHeader } from "@/components/page-header";
+import { MainContent } from "@/components/main-content";
 import { getDateRange } from "@/lib/queries/sales";
 
 export const dynamic = "force-dynamic";
@@ -73,7 +74,7 @@ export default async function ReimbursementsPage({
     <div className="min-h-screen">
       <Sidebar email={user.email ?? ""} />
 
-      <main className="pl-[240px]">
+      <MainContent>
         <PageHeader
           title="Returns & Reimbursements"
           subtitle="Track refunds, returns, and claims"
@@ -112,7 +113,7 @@ export default async function ReimbursementsPage({
 
           <ReturnsTable rows={returnRows} />
         </div>
-      </main>
+      </MainContent>
     </div>
   );
 }
