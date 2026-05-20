@@ -11,34 +11,43 @@ export async function getInboundShipments(
 ): Promise<InboundShipmentData[]> {
   const marketplaceId = process.env.SP_API_MARKETPLACE_ID!;
   const all: InboundShipmentData[] = [];
-  let nextToken: string | undefined;
+  const seen = new Set<string>();
 
-  do {
-    const params = new URLSearchParams();
-    params.set("MarketplaceId", marketplaceId);
+  for (const status of statuses) {
+    let nextToken: string | undefined;
 
-    if (nextToken) {
-      params.set("QueryType", "NEXT_TOKEN");
-      params.set("NextToken", nextToken);
-    } else {
-      params.set("QueryType", "SHIPMENT");
-      for (const s of statuses) {
-        params.append("ShipmentStatusList", s);
+    do {
+      const params = new URLSearchParams();
+      params.set("MarketplaceId", marketplaceId);
+
+      if (nextToken) {
+        params.set("QueryType", "NEXT_TOKEN");
+        params.set("NextToken", nextToken);
+      } else {
+        params.set("QueryType", "SHIPMENT");
+        params.set("ShipmentStatusList", status);
       }
-    }
 
-    const response = await spApiFetch(
-      `/fba/inbound/v0/shipments?${params}`
-    );
-    const data: GetShipmentsResponse = await response.json();
+      const response = await spApiFetch(
+        `/fba/inbound/v0/shipments?${params}`
+      );
+      const data: GetShipmentsResponse = await response.json();
 
-    all.push(...data.payload.ShipmentData);
-    nextToken = data.payload.NextToken ?? undefined;
+      for (const shipment of data.payload.ShipmentData) {
+        if (!seen.has(shipment.ShipmentId)) {
+          seen.add(shipment.ShipmentId);
+          all.push(shipment);
+        }
+      }
+      nextToken = data.payload.NextToken ?? undefined;
 
-    if (nextToken) {
-      await new Promise((r) => setTimeout(r, 2000));
-    }
-  } while (nextToken);
+      if (nextToken) {
+        await new Promise((r) => setTimeout(r, 2000));
+      }
+    } while (nextToken);
+
+    await new Promise((r) => setTimeout(r, 1000));
+  }
 
   return all;
 }

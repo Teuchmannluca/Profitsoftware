@@ -169,7 +169,7 @@ export async function getCapitalDetail(): Promise<CapitalDetailData | null> {
     supabase
       .from("inbound_shipments")
       .select("shipment_id, shipment_name, shipment_status, destination_fc_id")
-      .in("shipment_status", ["WORKING", "SHIPPED", "RECEIVING", "CLOSED"]),
+      .in("shipment_status", ["WORKING", "SHIPPED", "IN_TRANSIT", "RECEIVING", "DELIVERED", "CHECKED_IN", "CLOSED"]),
   ]);
 
   const products = productsRes.data ?? [];
@@ -296,7 +296,7 @@ export async function getCapitalDetail(): Promise<CapitalDetailData | null> {
   }
 
   shipmentRows.sort((a, b) => {
-    const order: Record<string, number> = { RECEIVING: 0, SHIPPED: 1, WORKING: 2, CLOSED: 3 };
+    const order: Record<string, number> = { RECEIVING: 0, IN_TRANSIT: 1, SHIPPED: 2, WORKING: 3, CLOSED: 4 };
     return (order[a.status] ?? 9) - (order[b.status] ?? 9);
   });
 
