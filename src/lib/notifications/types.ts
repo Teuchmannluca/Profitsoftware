@@ -24,6 +24,7 @@ export interface DigestMetric {
 export interface DigestTopSeller {
   title: string;
   asin: string;
+  imageUrl: string | null;
   units: number;
   sales: number;
 }

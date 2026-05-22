@@ -67,7 +67,7 @@ const METRIC_DEFS: Array<{
   pick: (m: SalesMetrics) => number;
 }> = [
   { key: "revenue", label: "Revenue", format: "currency", pick: (m) => m.grossSales },
-  { key: "profit", label: "Profit", format: "currency", pick: (m) => m.estimatedProfit },
+  { key: "profit", label: "Profit (excl. PPC)", format: "currency", pick: (m) => m.estimatedProfit + m.adSpend },
   { key: "margin", label: "Margin", format: "percent", pick: (m) => m.margin },
   { key: "roi", label: "ROI", format: "percent", pick: (m) => m.roi },
   { key: "units", label: "Units Sold", format: "number", pick: (m) => m.unitsSold },
@@ -126,6 +126,7 @@ export async function buildDailyDigest(
     topSellers: topSellers.map((s) => ({
       title: s.title ?? "Unknown Product",
       asin: s.asin,
+      imageUrl: s.image_url ?? null,
       units: s.units,
       sales: s.sales,
     })),

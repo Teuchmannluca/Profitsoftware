@@ -54,18 +54,25 @@ export function buildSlackBlocks(digest: DailyDigest): unknown[] {
     blocks.push({ type: "divider" });
     blocks.push({
       type: "section",
-      text: {
-        type: "mrkdwn",
-        text:
-          "*Top sellers*\n" +
-          digest.topSellers
-            .map(
-              (s, i) =>
-                `${i + 1}. ${slackEscape(s.title)} — ${s.units} units · £${s.sales.toFixed(2)}`
-            )
-            .join("\n"),
-      },
+      text: { type: "mrkdwn", text: "*Top sellers*" },
     });
+    for (const [i, s] of digest.topSellers.entries()) {
+      const entry: Record<string, unknown> = {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: `*${i + 1}. ${slackEscape(s.title.length > 60 ? s.title.slice(0, 57) + "..." : s.title)}*\n${s.units} unit${s.units !== 1 ? "s" : ""} · £${s.sales.toFixed(2)} · \`${slackEscape(s.asin)}\``,
+        },
+      };
+      if (s.imageUrl) {
+        entry.accessory = {
+          type: "image",
+          image_url: s.imageUrl,
+          alt_text: s.title.slice(0, 75),
+        };
+      }
+      blocks.push(entry);
+    }
   }
 
   blocks.push({

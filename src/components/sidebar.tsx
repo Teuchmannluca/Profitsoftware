@@ -21,6 +21,7 @@ import {
   MapPin,
   PanelLeftClose,
   PanelLeftOpen,
+  PackagePlus,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
@@ -34,9 +35,10 @@ const navItems = [
   { label: "Analysis", href: "/product", icon: Package },
   { label: "Capital", href: "/capital", icon: Coins },
   { label: "P&L", href: "/pnl", icon: PoundSterling, soon: true },
-  { label: "PPC / Ads", href: "/ppc", icon: Megaphone, soon: true },
+  { label: "PPC / Ads", href: "/ppc", icon: Megaphone },
   { label: "Order Map", href: "/map", icon: MapPin },
   { label: "Inventory", href: "/inventory", icon: Warehouse },
+  { label: "Restock", href: "/restock", icon: PackagePlus },
   { label: "Reimbursements", href: "/reimbursements", icon: RotateCcw },
   { label: "Reviews", href: "/reviews", icon: Star, soon: true },
 ];

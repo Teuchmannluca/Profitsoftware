@@ -505,7 +505,7 @@ export function OrderDetails({ orders }: { orders: OrderWithItems[] }) {
                           {/* COGS */}
                           <div className="text-right shrink-0 w-16">
                             <p className="text-sm font-bold font-mono text-muted-foreground">
-                              {formatMoney(item.cogs_snapshot)}
+                              {formatMoney((item.cogs_snapshot ?? 0) * item.qty)}
                             </p>
                             <p className="text-[9px] text-muted-foreground uppercase tracking-wider font-semibold">
                               cogs

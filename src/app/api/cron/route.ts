@@ -3,6 +3,7 @@ import { syncOrders } from "@/actions/sync-orders";
 import { syncFinances } from "@/actions/sync-finances";
 import { syncInboundShipments } from "@/actions/sync-inbound-shipments";
 import { syncReimbursements } from "@/actions/sync-reimbursements";
+import { syncAds } from "@/actions/sync-ads";
 import { runScheduledNotifications } from "@/lib/notifications/send";
 
 export const dynamic = "force-dynamic";
@@ -22,6 +23,7 @@ export async function GET(request: Request) {
     const financesResult = await syncFinances();
     const inboundResult = await syncInboundShipments();
     const reimbursementsResult = await syncReimbursements();
+    const adsResult = await syncAds();
 
     // Daily notifications run after the syncs so the digest reflects fresh data.
     // A notification failure must never fail the sync, so it is isolated here.
@@ -44,6 +46,7 @@ export async function GET(request: Request) {
       finances: financesResult,
       inbound: inboundResult,
       reimbursements: reimbursementsResult,
+      ads: adsResult,
       notifications: notificationsResult,
     });
   } catch (err) {

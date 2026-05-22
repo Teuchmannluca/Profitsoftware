@@ -94,11 +94,18 @@ export async function setProductCost(
       .eq("id", existing.id);
     if (error) return { success: false, error: error.message };
   } else {
+    // Use far-past date for the first entry so all historical orders get COGS
+    const { count } = await supabase
+      .from("cogs_periods")
+      .select("id", { count: "exact", head: true })
+      .eq("asin", asin);
+    const validFrom = (count ?? 0) === 0 ? "2020-01-01" : today;
+
     const { error } = await supabase.from("cogs_periods").insert({
       asin,
       unit_cost: unitCost,
       prep_cost: prepCost,
-      valid_from: today,
+      valid_from: validFrom,
     });
     if (error) return { success: false, error: error.message };
   }
