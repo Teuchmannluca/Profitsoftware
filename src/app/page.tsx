@@ -351,98 +351,65 @@ export default async function DashboardPage({
             const dateStr = new Date(latestSaleData.purchaseDate).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 
             return (
-              <div className="grid gap-6 lg:grid-cols-5">
-                <div className="lg:col-span-3">
-                  <Card className="overflow-hidden shadow-card ring-1 ring-border/50 h-full">
-                    <CardContent className="p-6">
-                      <div className="flex items-start gap-5">
-                        {latestSaleData.imageUrl ? (
-                          <Image
-                            src={latestSaleData.imageUrl}
-                            alt={latestSaleData.title ?? latestSaleData.sku}
-                            width={140}
-                            height={140}
-                            className="rounded-2xl object-cover ring-1 ring-border/50 shrink-0 w-auto h-auto"
-                          />
-                        ) : (
-                          <div className="h-[140px] w-[140px] rounded-2xl bg-muted shrink-0" />
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950 px-2 py-0.5 rounded-full ring-1 ring-emerald-600/10 dark:ring-emerald-400/10">
-                              Latest Sale · {dateStr} {timeStr}
-                            </span>
-                            <a href="/orders" className="text-[11px] text-primary font-medium hover:underline">All orders →</a>
-                          </div>
-                          <p className="text-[13px] font-bold truncate mt-2">{latestSaleData.title ?? "Unknown Product"}</p>
-                          <p className="text-[10px] text-muted-foreground font-mono mt-0.5">
-                            <a href={`https://www.amazon.co.uk/dp/${latestSaleData.asin}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{latestSaleData.asin}</a>
-                            {" · "}{latestSaleData.sku}
-                          </p>
-                          <div className="flex items-center gap-4 mt-3">
-                            <div className="text-center">
-                              <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Qty</p>
-                              <p className="text-lg font-bold font-mono">{latestSaleData.qty}</p>
-                            </div>
-                            <div className="h-8 w-px bg-border/60" />
-                            <div className="text-center">
-                              <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Price</p>
-                              <p className="text-lg font-bold font-mono">£{latestSaleData.salePrice.toFixed(2)}</p>
-                            </div>
-                            <div className="h-8 w-px bg-border/60" />
-                            <div className="text-center">
-                              <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Profit</p>
-                              <p className={`text-lg font-bold font-mono ${latestSaleData.profit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>£{latestSaleData.profit.toFixed(2)}</p>
-                            </div>
-                            <div className="h-8 w-px bg-border/60" />
-                            <div className="text-center">
-                              <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Margin</p>
-                              <p className={`text-lg font-bold font-mono ${latestSaleData.margin >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>{latestSaleData.margin.toFixed(1)}%</p>
-                            </div>
-                            <div className="h-8 w-px bg-border/60" />
-                            <div className="text-center">
-                              <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">In Stock</p>
-                              <p className={`text-lg font-bold font-mono ${latestSaleData.stockLeft <= 0 ? "text-rose-600 dark:text-rose-400" : latestSaleData.stockLeft < 10 ? "text-amber-600 dark:text-amber-400" : "text-foreground"}`}>{latestSaleData.stockLeft}</p>
-                              {latestSaleData.stockInbound > 0 && (
-                                <p className="text-[9px] text-sky-600 dark:text-sky-400 font-mono">+{latestSaleData.stockInbound} inbound</p>
-                              )}
-                            </div>
-                          </div>
+              <Card className="overflow-hidden shadow-card ring-1 ring-border/50">
+                <CardContent className="p-6">
+                  <div className="flex items-start gap-5">
+                    {latestSaleData.imageUrl ? (
+                      <Image
+                        src={latestSaleData.imageUrl}
+                        alt={latestSaleData.title ?? latestSaleData.sku}
+                        width={140}
+                        height={140}
+                        className="rounded-2xl object-cover ring-1 ring-border/50 shrink-0 w-auto h-auto"
+                      />
+                    ) : (
+                      <div className="h-[140px] w-[140px] rounded-2xl bg-muted shrink-0" />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950 px-2 py-0.5 rounded-full ring-1 ring-emerald-600/10 dark:ring-emerald-400/10">
+                          Latest Sale · {dateStr} {timeStr}
+                        </span>
+                        <a href="/orders" className="text-[11px] text-primary font-medium hover:underline">All orders →</a>
+                      </div>
+                      <p className="text-[13px] font-bold truncate mt-2">{latestSaleData.title ?? "Unknown Product"}</p>
+                      <p className="text-[10px] text-muted-foreground font-mono mt-0.5">
+                        <a href={`https://www.amazon.co.uk/dp/${latestSaleData.asin}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{latestSaleData.asin}</a>
+                        {" · "}{latestSaleData.sku}
+                      </p>
+                      <div className="flex items-center gap-4 mt-3">
+                        <div className="text-center">
+                          <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Qty</p>
+                          <p className="text-lg font-bold font-mono">{latestSaleData.qty}</p>
+                        </div>
+                        <div className="h-8 w-px bg-border/60" />
+                        <div className="text-center">
+                          <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Price</p>
+                          <p className="text-lg font-bold font-mono">£{latestSaleData.salePrice.toFixed(2)}</p>
+                        </div>
+                        <div className="h-8 w-px bg-border/60" />
+                        <div className="text-center">
+                          <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Profit</p>
+                          <p className={`text-lg font-bold font-mono ${latestSaleData.profit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>£{latestSaleData.profit.toFixed(2)}</p>
+                        </div>
+                        <div className="h-8 w-px bg-border/60" />
+                        <div className="text-center">
+                          <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Margin</p>
+                          <p className={`text-lg font-bold font-mono ${latestSaleData.margin >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>{latestSaleData.margin.toFixed(1)}%</p>
+                        </div>
+                        <div className="h-8 w-px bg-border/60" />
+                        <div className="text-center">
+                          <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">In Stock</p>
+                          <p className={`text-lg font-bold font-mono ${latestSaleData.stockLeft <= 0 ? "text-rose-600 dark:text-rose-400" : latestSaleData.stockLeft < 10 ? "text-amber-600 dark:text-amber-400" : "text-foreground"}`}>{latestSaleData.stockLeft}</p>
+                          {latestSaleData.stockInbound > 0 && (
+                            <p className="text-[9px] text-sky-600 dark:text-sky-400 font-mono">+{latestSaleData.stockInbound} inbound</p>
+                          )}
                         </div>
                       </div>
-                    </CardContent>
-                  </Card>
-                </div>
-                <div className="lg:col-span-2">
-                  <Card className="overflow-hidden shadow-card ring-1 ring-border/50 h-full">
-                    <CardContent className="p-6">
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-4">Cost Breakdown</p>
-                      <div className="space-y-3">
-                        <div className="flex justify-between items-center">
-                          <span className="text-xs text-muted-foreground">COGS &amp; Prep</span>
-                          <span className="font-mono text-xs font-semibold">£{(latestSaleData.cogs * latestSaleData.qty).toFixed(2)}</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-xs text-muted-foreground">Amazon Fees</span>
-                          <span className="font-mono text-xs font-semibold">£{latestSaleData.totalFee.toFixed(2)}</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-xs text-muted-foreground">VAT</span>
-                          <span className="font-mono text-xs font-semibold">£{latestSaleData.tax.toFixed(2)}</span>
-                        </div>
-                        <div className="border-t border-border/50 pt-3 flex justify-between items-center">
-                          <span className="text-xs font-semibold">Net Profit</span>
-                          <span className={`font-mono text-sm font-bold ${latestSaleData.profit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>£{latestSaleData.profit.toFixed(2)}</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                          <span className="text-xs font-semibold">ROI</span>
-                          <span className="font-mono text-xs font-bold">{latestSaleData.cogs > 0 ? ((latestSaleData.profit / (latestSaleData.cogs * latestSaleData.qty)) * 100).toFixed(1) : "—"}%</span>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             );
           })()}
 
