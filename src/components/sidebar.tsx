@@ -22,6 +22,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   PackagePlus,
+  Bell,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
@@ -40,6 +41,7 @@ const navItems = [
   { label: "Inventory", href: "/inventory", icon: Warehouse },
   { label: "Restock", href: "/restock", icon: PackagePlus },
   { label: "Reimbursements", href: "/reimbursements", icon: RotateCcw },
+  { label: "Notifications", href: "/notifications", icon: Bell },
   { label: "Reviews", href: "/reviews", icon: Star, soon: true },
 ];
 

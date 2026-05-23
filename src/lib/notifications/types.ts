@@ -10,6 +10,32 @@ export interface NotificationSettings {
   last_sent_date: string | null;
 }
 
+export interface BlockConfig {
+  key: string;
+  enabled: boolean;
+  metrics?: string[];
+  count?: number;
+}
+
+export interface NotificationProfile {
+  id: string;
+  name: string;
+  enabled: boolean;
+  email_enabled: boolean;
+  slack_enabled: boolean;
+  email_from: string | null;
+  recipient_emails: string | null;
+  slack_webhook_url: string | null;
+  send_hour: number;
+  send_minute: number;
+  frequency: "daily" | "weekdays" | "weekly";
+  weekly_day: number | null;
+  blocks: BlockConfig[];
+  last_sent_date: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export type MetricFormat = "currency" | "number" | "percent";
 
 export interface DigestMetric {

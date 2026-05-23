@@ -1,6 +1,7 @@
 import { getSalesMetrics, type SalesMetrics } from "@/lib/queries/sales";
 import { getTopSellers } from "@/actions/top-sellers";
 import type {
+  BlockConfig,
   DailyDigest,
   DigestMetric,
   DigestMover,
@@ -77,9 +78,11 @@ const METRIC_DEFS: Array<{
 /**
  * Builds the daily digest for the day that just ended (yesterday relative to
  * `reference`), comparing every metric against the day before that.
+ * When `blocks` is provided, only includes metrics/sections that are enabled.
  */
 export async function buildDailyDigest(
-  reference: Date = new Date()
+  reference: Date = new Date(),
+  blocks?: BlockConfig[]
 ): Promise<DailyDigest> {
   const todayStart = new Date(
     reference.getFullYear(),
@@ -98,7 +101,13 @@ export async function buildDailyDigest(
     getTopSellers("yesterday", "units"),
   ]);
 
-  const metrics: DigestMetric[] = METRIC_DEFS.map((def) => {
+  const kpiBlock = blocks?.find((b) => b.key === "kpis");
+  const enabledMetricKeys = kpiBlock?.metrics ?? METRIC_DEFS.map((d) => d.key);
+  const filteredDefs = kpiBlock?.enabled === false
+    ? []
+    : METRIC_DEFS.filter((d) => enabledMetricKeys.includes(d.key));
+
+  const metrics: DigestMetric[] = filteredDefs.map((def) => {
     const value = def.pick(yesterday);
     const prevValue = def.pick(dayBefore);
     return {
@@ -111,7 +120,13 @@ export async function buildDailyDigest(
     };
   });
 
-  const { best, worst } = pickMovers(metrics);
+  const moversBlock = blocks?.find((b) => b.key === "movers");
+  const showMovers = moversBlock?.enabled !== false;
+  const { best, worst } = showMovers ? pickMovers(metrics) : { best: null, worst: null };
+
+  const sellersBlock = blocks?.find((b) => b.key === "topSellers");
+  const showSellers = sellersBlock?.enabled !== false;
+  const sellerCount = sellersBlock?.count ?? 10;
 
   return {
     reportDate: toLocalDateStr(yesterdayFrom),
@@ -123,13 +138,15 @@ export async function buildDailyDigest(
       year: "numeric",
     }),
     metrics,
-    topSellers: topSellers.map((s) => ({
-      title: s.title ?? "Unknown Product",
-      asin: s.asin,
-      imageUrl: s.image_url ?? null,
-      units: s.units,
-      sales: s.sales,
-    })),
+    topSellers: showSellers
+      ? topSellers.slice(0, sellerCount).map((s) => ({
+          title: s.title ?? "Unknown Product",
+          asin: s.asin,
+          imageUrl: s.image_url ?? null,
+          units: s.units,
+          sales: s.sales,
+        }))
+      : [],
     bestMover: best,
     worstMover: worst,
   };

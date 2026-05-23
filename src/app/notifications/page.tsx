@@ -1,17 +1,14 @@
 import { createClient } from "@/lib/supabase/server";
-import { createServiceClient } from "@/lib/supabase/service";
 import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/sidebar";
 import { PageHeader } from "@/components/page-header";
 import { MainContent } from "@/components/main-content";
-import { SettingsForm } from "@/components/settings-form";
-import { getSettings } from "@/actions/settings";
-import { getExpenses } from "@/actions/expenses";
-import { ExpensesForm } from "@/components/expenses-form";
+import { getNotificationProfiles, getNotificationHistory } from "@/actions/notifications";
+import { NotificationPageClient } from "@/components/notification-page-client";
 
 export const dynamic = "force-dynamic";
 
-export default async function SettingsPage() {
+export default async function NotificationsPage() {
   const authClient = await createClient();
   const {
     data: { user },
@@ -21,9 +18,9 @@ export default async function SettingsPage() {
     redirect("/login");
   }
 
-  const [settings, expenses] = await Promise.all([
-    getSettings(),
-    getExpenses(),
+  const [profiles, history] = await Promise.all([
+    getNotificationProfiles(),
+    getNotificationHistory(30),
   ]);
 
   return (
@@ -32,13 +29,15 @@ export default async function SettingsPage() {
 
       <MainContent>
         <PageHeader
-          title="Settings"
-          subtitle="Business & VAT configuration"
+          title="Notifications"
+          subtitle="Manage daily email & Slack notification profiles"
         />
 
-        <div className="p-8 max-w-3xl space-y-6">
-          <SettingsForm initialSettings={settings} />
-          <ExpensesForm initialExpenses={expenses} />
+        <div className="p-8">
+          <NotificationPageClient
+            initialProfiles={profiles}
+            initialHistory={history}
+          />
         </div>
       </MainContent>
     </div>

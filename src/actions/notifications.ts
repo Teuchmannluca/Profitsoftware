@@ -1,41 +1,65 @@
 "use server";
 
 import {
+  getNotificationProfiles as _getProfiles,
+  getNotificationProfile as _getProfile,
+  createNotificationProfile as _createProfile,
+  updateNotificationProfile as _updateProfile,
+  deleteNotificationProfile as _deleteProfile,
   getNotificationHistory as _getHistory,
-  getNotificationSettings as _getSettings,
-  saveNotificationSettings,
 } from "@/lib/notifications/store";
-import { deliverDailyDigest } from "@/lib/notifications/send";
+import { deliverProfileDigest } from "@/lib/notifications/send";
 import type {
   DeliveryResult,
   NotificationLogEntry,
-  NotificationSettings,
+  NotificationProfile,
 } from "@/lib/notifications/types";
 
-export async function getNotificationSettings(): Promise<NotificationSettings> {
-  return _getSettings();
+export async function getNotificationProfiles(): Promise<NotificationProfile[]> {
+  return _getProfiles();
 }
 
-export async function updateNotificationSettings(
-  patch: Partial<NotificationSettings>
+export async function getNotificationProfile(
+  id: string
+): Promise<NotificationProfile | null> {
+  return _getProfile(id);
+}
+
+export async function createNotificationProfile(
+  data: Omit<NotificationProfile, "id" | "created_at" | "updated_at" | "last_sent_date">
+): Promise<{ id: string | null; error?: string }> {
+  return _createProfile(data);
+}
+
+export async function updateNotificationProfile(
+  id: string,
+  patch: Partial<Omit<NotificationProfile, "id" | "created_at" | "updated_at">>
 ): Promise<{ success: boolean; error?: string }> {
-  return saveNotificationSettings(patch);
+  return _updateProfile(id, patch);
+}
+
+export async function deleteNotificationProfile(
+  id: string
+): Promise<{ success: boolean; error?: string }> {
+  return _deleteProfile(id);
 }
 
 export async function getNotificationHistory(
-  limit?: number
+  limit?: number,
+  profileId?: string
 ): Promise<NotificationLogEntry[]> {
-  return _getHistory(limit);
+  return _getHistory(limit, profileId);
 }
 
-/**
- * Sends the digest immediately to whichever channels are toggled on, ignoring
- * the master switch and the daily schedule. Used by the "Send test" button.
- */
-export async function sendTestNotification(): Promise<DeliveryResult> {
-  const settings = await _getSettings();
-  if (!settings.email_enabled && !settings.slack_enabled) {
+export async function sendTestNotification(
+  profileId: string
+): Promise<DeliveryResult> {
+  const profile = await _getProfile(profileId);
+  if (!profile) {
+    return { ok: false, skipped: "profile_not_found", results: [] };
+  }
+  if (!profile.email_enabled && !profile.slack_enabled) {
     return { ok: false, skipped: "no_channels", results: [] };
   }
-  return deliverDailyDigest(settings, "manual");
+  return deliverProfileDigest(profile, "manual");
 }
