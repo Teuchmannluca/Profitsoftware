@@ -1,7 +1,7 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import { getRecentOrders, getOrderItems } from "@/lib/sp-api/orders";
 import { getFeesEstimateForItem } from "@/lib/sp-api/fees";
-import { getMyPriceForASINs, getMyPriceForSKUs } from "@/lib/sp-api/pricing";
+import { getMyPriceForASINs, getMyPriceForSKUs, getCompetitivePriceForASINs } from "@/lib/sp-api/pricing";
 import type { SpApiOrder, SpApiOrderItem } from "@/lib/sp-api/types";
 
 export function mapSpApiOrderToRow(order: SpApiOrder) {
@@ -293,19 +293,36 @@ export async function syncOrders(sinceOverride?: string): Promise<{
 
       console.log(`[orders-sync] Estimating pending prices from SP-API Pricing for ${uniqueSkus.length} SKUs / ${uniqueAsins.length} ASINs`);
 
+      // Try seller's own listing price first
       const skuPrices = await getMyPriceForSKUs(uniqueSkus);
-      const missingAsins = [
-        ...new Set(
-          estimateItems
-            .filter((item) => !item.sku || !skuPrices.has(item.sku))
-            .map((item) => item.asin)
-            .filter((asin): asin is string => Boolean(asin))
-        ),
-      ];
+      const missingAfterSku = estimateItems.filter((item) => !item.sku || !skuPrices.has(item.sku));
+      const missingAsins = [...new Set(missingAfterSku.map((item) => item.asin).filter((asin): asin is string => Boolean(asin)))];
+
+      let asinPrices = new Map<string, number>();
       if (missingAsins.length > 0) {
         await new Promise((r) => setTimeout(r, 2000));
+        asinPrices = await getMyPriceForASINs(missingAsins);
       }
-      const asinPrices = await getMyPriceForASINs(missingAsins);
+
+      // For any still missing, try competitive pricing (Buy Box price)
+      const stillMissing = estimateItems.filter((item) => {
+        if (item.sku && skuPrices.has(item.sku)) return false;
+        if (item.asin && asinPrices.has(item.asin)) return false;
+        return true;
+      });
+      const stillMissingAsins = [...new Set(stillMissing.map((item) => item.asin).filter((asin): asin is string => Boolean(asin)))];
+
+      if (stillMissingAsins.length > 0) {
+        console.log(`[orders-sync] Trying competitive pricing for ${stillMissingAsins.length} ASINs still missing prices`);
+        await new Promise((r) => setTimeout(r, 2000));
+        const competitivePrices = await getCompetitivePriceForASINs(stillMissingAsins);
+        for (const [asin, price] of competitivePrices) {
+          if (!asinPrices.has(asin)) {
+            asinPrices.set(asin, price);
+          }
+        }
+      }
+
       const estimateUpdates = buildPendingEstimatePriceUpdates(estimateItems, skuPrices, asinPrices);
 
       let estimatedPricesFilled = 0;
@@ -317,7 +334,7 @@ export async function syncOrders(sinceOverride?: string): Promise<{
         if (!estimateErr) estimatedPricesFilled++;
       }
 
-      console.log(`[orders-sync] Filled ${estimatedPricesFilled} pending prices with temporary listing-price estimates`);
+      console.log(`[orders-sync] Filled ${estimatedPricesFilled} pending prices with listing/competitive price estimates`);
     }
 
     // Estimate fees for new items that don't have them yet
