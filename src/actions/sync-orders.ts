@@ -158,11 +158,39 @@ export async function syncOrders(sinceOverride?: string): Promise<{
       .map((id) => ({ AmazonOrderId: id } as SpApiOrder));
     const allOrdersToFetch = [...Orders, ...extraOrders];
 
+    // Build set of Pending order IDs that already have items in DB.
+    // We SKIP re-fetching items for these because Amazon returns £0 for Pending
+    // orders, which would overwrite any estimated prices we already filled in.
+    const pendingOrderIds = new Set(
+      Orders.filter((o) => o.OrderStatus === "Pending").map((o) => o.AmazonOrderId)
+    );
+    const pendingWithItemsIds = new Set<string>();
+    if (pendingOrderIds.size > 0) {
+      const pendingArr = [...pendingOrderIds];
+      const { data: existingPendingItems } = await supabase
+        .from("order_items")
+        .select("amazon_order_id")
+        .in("amazon_order_id", pendingArr);
+      for (const row of existingPendingItems ?? []) {
+        pendingWithItemsIds.add(row.amazon_order_id);
+      }
+      if (pendingWithItemsIds.size > 0) {
+        console.log(`[orders-sync] Skipping item re-fetch for ${pendingWithItemsIds.size} Pending orders (would overwrite prices with £0)`);
+      }
+    }
+
     // Fetch items for each order — burst limit: 30, then 0.5 req/sec
     // Use burst for first 25 orders (no throttle), then throttle
     const retryCount = new Map<string, number>();
+    let fetchIndex = 0;
     for (let i = 0; i < allOrdersToFetch.length; i++) {
       const order = allOrdersToFetch[i];
+
+      // Skip Pending orders that already have items — re-fetching would zero out prices
+      if (pendingWithItemsIds.has(order.AmazonOrderId)) {
+        continue;
+      }
+
       try {
         const { OrderItems } = await getOrderItems(order.AmazonOrderId);
         const itemRows = OrderItems.map((item) =>
@@ -193,13 +221,14 @@ export async function syncOrders(sinceOverride?: string): Promise<{
         console.error(`[orders-sync] Failed to get items for ${order.AmazonOrderId}:`, msg);
       }
 
+      fetchIndex++;
       // Only throttle after burst allowance used up
-      if (i >= 25) {
+      if (fetchIndex >= 25) {
         await new Promise((r) => setTimeout(r, 2000));
       }
 
-      if ((i + 1) % 25 === 0) {
-        console.log(`[orders-sync] Progress: ${i + 1}/${allOrdersToFetch.length} orders processed, ${itemsWritten} items`);
+      if (fetchIndex % 25 === 0) {
+        console.log(`[orders-sync] Progress: ${fetchIndex} orders processed, ${itemsWritten} items`);
       }
     }
 
