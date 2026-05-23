@@ -89,6 +89,12 @@ export default async function DashboardPage({
       .lte("event_date", to.toISOString().slice(0, 10)),
   ]);
 
+  const lastSyncTime = (syncLogs ?? [])
+    .map((l) => l.finished_at)
+    .filter(Boolean)
+    .sort()
+    .pop() as string | undefined;
+
   const totalRefunded = (refundRows ?? []).reduce((sum, r) => sum + (r.refunded_amount ?? 0), 0);
   const totalReimbursed = (reimbursementRows ?? []).reduce((sum, r) => sum + (r.amount ?? 0), 0);
 
@@ -208,7 +214,7 @@ export default async function DashboardPage({
           action={
             <div className="flex items-center gap-3">
               <PeriodFilter />
-              <SyncButton />
+              <SyncButton lastSyncTime={lastSyncTime ?? null} />
             </div>
           }
         />
