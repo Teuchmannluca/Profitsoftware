@@ -92,8 +92,12 @@ export async function syncInboundShipments(): Promise<{
     }
     console.log(`[inbound-sync] Upserted ${shipmentsWritten} shipments`);
 
+    const activeStatuses = new Set(["WORKING", "SHIPPED", "IN_TRANSIT", "RECEIVING", "CHECKED_IN"]);
+    const activeShipments = shipments.filter((s) => activeStatuses.has(s.ShipmentStatus));
+    console.log(`[inbound-sync] Fetching items for ${activeShipments.length} active shipments (skipping ${shipments.length - activeShipments.length} closed/delivered)`);
+
     let itemsWritten = 0;
-    for (const shipment of shipments) {
+    for (const shipment of activeShipments) {
       try {
         const items = await getShipmentItems(shipment.ShipmentId);
         if (items.length === 0) continue;
