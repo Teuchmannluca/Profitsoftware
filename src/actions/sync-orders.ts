@@ -356,6 +356,33 @@ export async function syncOrders(sinceOverride?: string): Promise<{
         }
       }
 
+      // Final fallback: use most recent known sale price from our own DB
+      const finalMissing = estimateItems.filter((item) => {
+        if (item.sku && skuPrices.has(item.sku)) return false;
+        if (item.asin && asinPrices.has(item.asin)) return false;
+        return true;
+      });
+      const finalMissingSkus = [...new Set(finalMissing.map((item) => item.sku).filter((sku): sku is string => Boolean(sku)))];
+
+      if (finalMissingSkus.length > 0) {
+        console.log(`[orders-sync] Using last known sale price from DB for ${finalMissingSkus.length} SKUs`);
+        for (const sku of finalMissingSkus) {
+          const { data: lastSale } = await supabase
+            .from("order_items")
+            .select("item_price_gross, qty")
+            .eq("sku", sku)
+            .gt("item_price_gross", 0)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .single();
+
+          if (lastSale && lastSale.item_price_gross > 0) {
+            const unitPrice = lastSale.qty > 0 ? lastSale.item_price_gross / lastSale.qty : lastSale.item_price_gross;
+            skuPrices.set(sku, unitPrice);
+          }
+        }
+      }
+
       const estimateUpdates = buildPendingEstimatePriceUpdates(estimateItems, skuPrices, asinPrices);
 
       let estimatedPricesFilled = 0;
@@ -367,7 +394,7 @@ export async function syncOrders(sinceOverride?: string): Promise<{
         if (!estimateErr) estimatedPricesFilled++;
       }
 
-      console.log(`[orders-sync] Filled ${estimatedPricesFilled} pending prices with listing/competitive price estimates`);
+      console.log(`[orders-sync] Filled ${estimatedPricesFilled} pending prices with listing/competitive/historical estimates`);
     }
 
     // Estimate fees for new items that don't have them yet
