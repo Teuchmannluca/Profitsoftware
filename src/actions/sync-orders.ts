@@ -230,49 +230,53 @@ export async function syncOrders(sinceOverride?: string): Promise<{
       }
     }
 
-    // Refresh zero-price order items from the Orders API.
-    // Pending orders do not expose transaction prices. Product Pricing only gives listing/offer prices,
-    // not the actual sale price, so the correct fix is to re-fetch until ItemPrice appears.
     const priceRefreshSince = new Date(Date.now() - 14 * 86400000).toISOString();
-    const { data: zeroPriceItems } = await supabase
-      .from("order_items")
-      .select("amazon_order_id, orders!inner(purchase_date)")
-      .eq("item_price_gross", 0)
-      .not("asin", "is", null)
-      .gte("orders.purchase_date", priceRefreshSince);
 
-    if (zeroPriceItems && zeroPriceItems.length > 0) {
-      const orderIds = getUniqueOrderIdsForPriceRefresh(zeroPriceItems);
-      console.log(`[orders-sync] Re-fetching ${orderIds.length} recent zero-price orders from SP-API Orders`);
+    // Fix prices for orders that transitioned from Pending → Shipped/Unshipped.
+    // When Amazon moves an order out of Pending, getOrderItems now returns real prices.
+    // Find non-Pending orders in this batch that still have £0 items and re-fetch.
+    const nonPendingIds = Orders
+      .filter((o) => o.OrderStatus !== "Pending")
+      .map((o) => o.AmazonOrderId);
 
-      let pricesRefreshed = 0;
-      for (const [index, orderId] of orderIds.entries()) {
-        try {
-          const { OrderItems } = await getOrderItems(orderId);
-          const pricedRows = OrderItems
-            .filter((item) => parseFloat(item.ItemPrice?.Amount ?? "0") > 0)
-            .map((item) => mapSpApiItemToRow(item, orderId));
+    if (nonPendingIds.length > 0) {
+      const { data: zeroPriceTransitioned } = await supabase
+        .from("order_items")
+        .select("amazon_order_id")
+        .in("amazon_order_id", nonPendingIds)
+        .eq("item_price_gross", 0);
 
-          if (pricedRows.length > 0) {
-            const { error: priceErr } = await supabase
-              .from("order_items")
-              .upsert(pricedRows, { onConflict: "order_item_id" });
-            if (!priceErr) pricesRefreshed += pricedRows.length;
+      const transitionedIds = [...new Set((zeroPriceTransitioned ?? []).map((r) => r.amazon_order_id))];
+
+      if (transitionedIds.length > 0) {
+        console.log(`[orders-sync] Re-fetching items for ${transitionedIds.length} orders that left Pending with £0 prices`);
+        let transitionPricesFixed = 0;
+
+        for (const [index, orderId] of transitionedIds.entries()) {
+          try {
+            const { OrderItems } = await getOrderItems(orderId);
+            const pricedRows = OrderItems
+              .filter((item) => parseFloat(item.ItemPrice?.Amount ?? "0") > 0)
+              .map((item) => mapSpApiItemToRow(item, orderId));
+
+            if (pricedRows.length > 0) {
+              const { error: err } = await supabase
+                .from("order_items")
+                .upsert(pricedRows, { onConflict: "order_item_id" });
+              if (!err) transitionPricesFixed += pricedRows.length;
+            }
+          } catch (err: unknown) {
+            console.error(`[orders-sync] Transition price fix failed for ${orderId}:`,
+              err instanceof Error ? err.message : String(err));
           }
-        } catch (priceErr: unknown) {
-          const msg = priceErr instanceof Error ? priceErr.message : String(priceErr);
-          console.error(`[orders-sync] Price refresh failed for ${orderId}:`, msg);
+          if (index < transitionedIds.length - 1) {
+            await new Promise((r) => setTimeout(r, 2000));
+          }
         }
 
-        if (index < orderIds.length - 1) {
-          await new Promise((r) => setTimeout(r, 2000));
+        if (transitionPricesFixed > 0) {
+          console.log(`[orders-sync] Fixed ${transitionPricesFixed} prices from Pending→Shipped transition`);
         }
-      }
-
-      if (pricesRefreshed > 0) {
-        console.log(`[orders-sync] Refreshed ${pricesRefreshed} real sale prices from SP-API Orders`);
-      } else {
-        console.log(`[orders-sync] No real sale prices available yet for recent zero-price orders`);
       }
     }
 
