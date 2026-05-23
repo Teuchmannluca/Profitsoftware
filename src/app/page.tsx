@@ -314,18 +314,6 @@ export default async function DashboardPage({
               gradient="rose"
             />
             <StatBox
-              label="Expenses"
-              value={`£${metrics.expenses.toFixed(2)}`}
-              iconName="Wallet"
-              gradient="violet"
-            />
-            <StatBox
-              label="Refunds"
-              value={`£${totalRefunded.toFixed(2)}`}
-              iconName="RotateCcw"
-              gradient="rose"
-            />
-            <StatBox
               label="Net P&L"
               value={`£${metrics.estimatedProfit.toFixed(2)}`}
               iconName="PiggyBank"
