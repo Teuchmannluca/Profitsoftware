@@ -12,7 +12,7 @@ export async function getRecentOrders(
     const params = new URLSearchParams({
       MarketplaceIds: marketplaceId,
       LastUpdatedAfter: since.toISOString(),
-      OrderStatuses: "Shipped,Unshipped,PartiallyShipped,Pending,InvoiceUnconfirmed",
+      OrderStatuses: "Shipped,Unshipped,PartiallyShipped,Pending,InvoiceUnconfirmed,Cancelled",
     });
     if (nextToken) {
       params.set("NextToken", nextToken);
