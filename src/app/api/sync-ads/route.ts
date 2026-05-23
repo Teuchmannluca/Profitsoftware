@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { syncAds } from "@/actions/sync-ads";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 300;
+export const maxDuration = 900;
 
 export async function POST() {
   console.log("[sync-ads] Starting ads sync...");

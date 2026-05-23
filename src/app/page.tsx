@@ -111,12 +111,9 @@ export default async function DashboardPage({
   );
 
   // Fetch absolute latest sale (regardless of period filter)
-  // Skip Pending orders — SP-API inflates ItemPrice with delivery surcharges.
-  // Finance API corrects the price after shipping.
   const { data: globalLatestOrders } = await supabase
     .from("orders")
     .select("amazon_order_id, purchase_date")
-    .neq("order_status", "Pending")
     .order("purchase_date", { ascending: false })
     .limit(5);
 
@@ -279,7 +276,7 @@ export default async function DashboardPage({
           />
 
           {/* Stats strip */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
             <StatBox
               label="Orders"
               value={metrics.totalOrderCount}
@@ -299,7 +296,7 @@ export default async function DashboardPage({
               gradient="orange"
             />
             <StatBox
-              label="Fees Paid"
+              label="Fees"
               value={`£${metrics.totalFees.toFixed(2)}`}
               iconName="Receipt"
               gradient="amber"
@@ -311,10 +308,16 @@ export default async function DashboardPage({
               gradient="rose"
             />
             <StatBox
+              label="Expenses"
+              value={`£${metrics.expenses.toFixed(2)}`}
+              iconName="Wallet"
+              gradient="violet"
+            />
+            <StatBox
               label="Refunds"
               value={`£${totalRefunded.toFixed(2)}`}
               iconName="RotateCcw"
-              gradient="violet"
+              gradient="rose"
             />
             <StatBox
               label="Net P&L"
@@ -327,6 +330,12 @@ export default async function DashboardPage({
               value={`${metrics.margin.toFixed(1)}%`}
               iconName="Percent"
               gradient="sky"
+            />
+            <StatBox
+              label="ROI"
+              value={`${metrics.roi.toFixed(1)}%`}
+              iconName="TrendingUp"
+              gradient="emerald"
             />
           </div>
 
@@ -347,7 +356,7 @@ export default async function DashboardPage({
                             alt={latestSaleData.title ?? latestSaleData.sku}
                             width={140}
                             height={140}
-                            className="rounded-2xl object-cover ring-1 ring-border/50 shrink-0"
+                            className="rounded-2xl object-cover ring-1 ring-border/50 shrink-0 w-auto h-auto"
                           />
                         ) : (
                           <div className="h-[140px] w-[140px] rounded-2xl bg-muted shrink-0" />

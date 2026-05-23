@@ -1,7 +1,7 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import { getRecentOrders, getOrderItems } from "@/lib/sp-api/orders";
 import { getFeesEstimateForItem } from "@/lib/sp-api/fees";
-import { getMyPriceForASINs } from "@/lib/sp-api/pricing";
+import { getMyPriceForASINs, getMyPriceForSKUs } from "@/lib/sp-api/pricing";
 import type { SpApiOrder, SpApiOrderItem } from "@/lib/sp-api/types";
 
 export function mapSpApiOrderToRow(order: SpApiOrder) {
@@ -33,6 +33,39 @@ export function mapSpApiItemToRow(item: SpApiOrderItem, orderId: string) {
 
 export function getPerUnitPrice(lineTotal: number, qty: number | null | undefined) {
   return qty && qty > 0 ? lineTotal / qty : lineTotal;
+}
+
+export interface ZeroPriceOrderRef {
+  amazon_order_id: string;
+}
+
+export interface PendingEstimatePriceItem {
+  order_item_id: string;
+  asin: string | null;
+  sku: string | null;
+  qty: number | null;
+}
+
+export function getUniqueOrderIdsForPriceRefresh(items: ZeroPriceOrderRef[]) {
+  return [...new Set(items.map((item) => item.amazon_order_id).filter(Boolean))];
+}
+
+export function buildPendingEstimatePriceUpdates(
+  items: PendingEstimatePriceItem[],
+  skuPrices: Map<string, number>,
+  asinPrices: Map<string, number>
+) {
+  return items.flatMap((item) => {
+    const unitPrice =
+      (item.sku ? skuPrices.get(item.sku) : undefined) ??
+      (item.asin ? asinPrices.get(item.asin) : undefined);
+    if (!unitPrice || unitPrice <= 0) return [];
+
+    return [{
+      orderItemId: item.order_item_id,
+      itemPriceGross: unitPrice * (item.qty ?? 1),
+    }];
+  });
 }
 
 export async function syncOrders(sinceOverride?: string): Promise<{
@@ -197,58 +230,94 @@ export async function syncOrders(sinceOverride?: string): Promise<{
       }
     }
 
-    // Fill in prices for Pending orders (£0) using last known PER-UNIT price per ASIN
-    // Amazon's ItemPrice is the LINE TOTAL (price × qty), so we must normalize to per-unit
+    // Refresh zero-price order items from the Orders API.
+    // Pending orders do not expose transaction prices. Product Pricing only gives listing/offer prices,
+    // not the actual sale price, so the correct fix is to re-fetch until ItemPrice appears.
+    const priceRefreshSince = new Date(Date.now() - 14 * 86400000).toISOString();
     const { data: zeroPriceItems } = await supabase
       .from("order_items")
-      .select("order_item_id, asin, qty")
+      .select("amazon_order_id, orders!inner(purchase_date)")
       .eq("item_price_gross", 0)
-      .not("asin", "is", null);
+      .not("asin", "is", null)
+      .gte("orders.purchase_date", priceRefreshSince);
 
     if (zeroPriceItems && zeroPriceItems.length > 0) {
-      const uniqueAsins = [...new Set(zeroPriceItems.map((i) => i.asin))];
-      const perUnitPriceMap = new Map<string, number>();
+      const orderIds = getUniqueOrderIdsForPriceRefresh(zeroPriceItems);
+      console.log(`[orders-sync] Re-fetching ${orderIds.length} recent zero-price orders from SP-API Orders`);
 
-      // First try: last known price from previous orders
-      for (const asin of uniqueAsins) {
-        const { data: lastKnown } = await supabase
-          .from("order_items")
-          .select("item_price_gross, qty")
-          .eq("asin", asin)
-          .gt("item_price_gross", 0)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .single();
+      let pricesRefreshed = 0;
+      for (const [index, orderId] of orderIds.entries()) {
+        try {
+          const { OrderItems } = await getOrderItems(orderId);
+          const pricedRows = OrderItems
+            .filter((item) => parseFloat(item.ItemPrice?.Amount ?? "0") > 0)
+            .map((item) => mapSpApiItemToRow(item, orderId));
 
-        if (lastKnown) {
-          const perUnit = parseFloat(String(lastKnown.item_price_gross)) / (lastKnown.qty ?? 1);
-          perUnitPriceMap.set(asin, perUnit);
+          if (pricedRows.length > 0) {
+            const { error: priceErr } = await supabase
+              .from("order_items")
+              .upsert(pricedRows, { onConflict: "order_item_id" });
+            if (!priceErr) pricesRefreshed += pricedRows.length;
+          }
+        } catch (priceErr: unknown) {
+          const msg = priceErr instanceof Error ? priceErr.message : String(priceErr);
+          console.error(`[orders-sync] Price refresh failed for ${orderId}:`, msg);
+        }
+
+        if (index < orderIds.length - 1) {
+          await new Promise((r) => setTimeout(r, 2000));
         }
       }
 
-      // Second try: SP-API Product Pricing API for ASINs still missing a price
-      const missingAsins = uniqueAsins.filter((a) => !perUnitPriceMap.has(a));
+      if (pricesRefreshed > 0) {
+        console.log(`[orders-sync] Refreshed ${pricesRefreshed} real sale prices from SP-API Orders`);
+      } else {
+        console.log(`[orders-sync] No real sale prices available yet for recent zero-price orders`);
+      }
+    }
+
+    // While Amazon keeps an order Pending, no SP-API endpoint exposes the buyer's actual paid price.
+    // To avoid showing £0.00, use the seller's current listing price as a temporary estimate.
+    // Orders/Finances syncs above overwrite this with real ItemPrice/Principal as soon as Amazon releases it.
+    const { data: pendingEstimateItems } = await supabase
+      .from("order_items")
+      .select("order_item_id, asin, sku, qty, orders!inner(purchase_date)")
+      .eq("item_price_gross", 0)
+      .not("asin", "is", null)
+      .gte("orders.purchase_date", priceRefreshSince);
+
+    if (pendingEstimateItems && pendingEstimateItems.length > 0) {
+      const estimateItems = pendingEstimateItems as PendingEstimatePriceItem[];
+      const uniqueSkus = [...new Set(estimateItems.map((item) => item.sku).filter((sku): sku is string => Boolean(sku)))];
+      const uniqueAsins = [...new Set(estimateItems.map((item) => item.asin).filter((asin): asin is string => Boolean(asin)))];
+
+      console.log(`[orders-sync] Estimating pending prices from SP-API Pricing for ${uniqueSkus.length} SKUs / ${uniqueAsins.length} ASINs`);
+
+      const skuPrices = await getMyPriceForSKUs(uniqueSkus);
+      const missingAsins = [
+        ...new Set(
+          estimateItems
+            .filter((item) => !item.sku || !skuPrices.has(item.sku))
+            .map((item) => item.asin)
+            .filter((asin): asin is string => Boolean(asin))
+        ),
+      ];
       if (missingAsins.length > 0) {
-        console.log(`[orders-sync] Fetching listing prices from SP-API for ${missingAsins.length} ASINs`);
-        const apiPrices = await getMyPriceForASINs(missingAsins);
-        for (const [asin, price] of apiPrices) {
-          perUnitPriceMap.set(asin, price);
-        }
+        await new Promise((r) => setTimeout(r, 2000));
+      }
+      const asinPrices = await getMyPriceForASINs(missingAsins);
+      const estimateUpdates = buildPendingEstimatePriceUpdates(estimateItems, skuPrices, asinPrices);
+
+      let estimatedPricesFilled = 0;
+      for (const update of estimateUpdates) {
+        const { error: estimateErr } = await supabase
+          .from("order_items")
+          .update({ item_price_gross: update.itemPriceGross })
+          .eq("order_item_id", update.orderItemId);
+        if (!estimateErr) estimatedPricesFilled++;
       }
 
-      let pricesFilled = 0;
-      for (const item of zeroPriceItems) {
-        const perUnit = perUnitPriceMap.get(item.asin);
-        if (perUnit) {
-          const lineTotal = perUnit * (item.qty ?? 1);
-          await supabase
-            .from("order_items")
-            .update({ item_price_gross: lineTotal })
-            .eq("order_item_id", item.order_item_id);
-          pricesFilled++;
-        }
-      }
-      console.log(`[orders-sync] Filled ${pricesFilled} pending order prices (${missingAsins.length} from SP-API Pricing)`);
+      console.log(`[orders-sync] Filled ${estimatedPricesFilled} pending prices with temporary listing-price estimates`);
     }
 
     // Estimate fees for new items that don't have them yet

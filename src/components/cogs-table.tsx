@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, Fragment } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
@@ -410,8 +410,8 @@ export function CogsTable({ rows, historyByAsin }: { rows: ProductCostRow[]; his
                   const isOpen = expanded.has(row.sku);
                   const history = row.asin ? (historyByAsin[row.asin] ?? []) : [];
                   return (
-                  <>
-                  <TableRow key={row.sku} className="group border-border/40 transition-colors">
+                  <Fragment key={row.sku}>
+                  <TableRow className="group border-border/40 transition-colors">
                     <TableCell className="pl-4">
                       <button
                         onClick={() => toggleExpand(row.sku)}
@@ -431,7 +431,7 @@ export function CogsTable({ rows, historyByAsin }: { rows: ProductCostRow[]; his
                           alt={row.title ?? row.sku}
                           width={96}
                           height={96}
-                          className="rounded-xl object-cover ring-1 ring-border/50"
+                          className="rounded-xl object-cover ring-1 ring-border/50 w-auto h-auto"
                         />
                       ) : (
                         <div className="h-[96px] w-[96px] rounded-xl bg-muted flex items-center justify-center ring-1 ring-border/50">
@@ -501,7 +501,7 @@ export function CogsTable({ rows, historyByAsin }: { rows: ProductCostRow[]; his
                       </TableCell>
                     </TableRow>
                   )}
-                  </>
+                  </Fragment>
                   );
                 })}
               </TableBody>

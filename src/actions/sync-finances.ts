@@ -2,7 +2,17 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { getShipmentEvents } from "@/lib/sp-api/finances";
 import type { FinancialShipmentItem } from "@/lib/sp-api/types";
 
-export function parseItemFees(item: FinancialShipmentItem) {
+export interface ParsedItemFees {
+  feeBasis: "per_unit";
+  totalFees: number;
+  referralFee: number;
+  fbaFee: number;
+  closingFee: number;
+  digitalServicesFee: number;
+  [feeType: string]: number | "per_unit";
+}
+
+export function parseItemFees(item: FinancialShipmentItem): ParsedItemFees {
   const feeBreakdown: Record<string, number> = {};
   const qty = item.QuantityShipped > 0 ? item.QuantityShipped : 1;
   let lineTotalFees = 0;

@@ -11,6 +11,8 @@ import {
   getNotificationSettings,
   getNotificationHistory,
 } from "@/actions/notifications";
+import { getExpenses } from "@/actions/expenses";
+import { ExpensesForm } from "@/components/expenses-form";
 
 export const dynamic = "force-dynamic";
 
@@ -24,11 +26,12 @@ export default async function SettingsPage() {
     redirect("/login");
   }
 
-  const [settings, notificationSettings, notificationHistory] =
+  const [settings, notificationSettings, notificationHistory, expenses] =
     await Promise.all([
       getSettings(),
       getNotificationSettings(),
       getNotificationHistory(15),
+      getExpenses(),
     ]);
 
   return (
@@ -43,6 +46,7 @@ export default async function SettingsPage() {
 
         <div className="p-8 max-w-3xl space-y-6">
           <SettingsForm initialSettings={settings} />
+          <ExpensesForm initialExpenses={expenses} />
           <NotificationSettingsForm
             initialSettings={notificationSettings}
             initialHistory={notificationHistory}

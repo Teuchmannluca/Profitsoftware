@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
+  buildPendingEstimatePriceUpdates,
   getPerUnitPrice,
+  getUniqueOrderIdsForPriceRefresh,
   mapSpApiOrderToRow,
   mapSpApiItemToRow,
 } from "@/actions/sync-orders";
@@ -82,5 +84,57 @@ describe("getPerUnitPrice", () => {
   it("falls back to the line total when quantity is missing or invalid", () => {
     expect(getPerUnitPrice(19.99, null)).toBe(19.99);
     expect(getPerUnitPrice(19.99, 0)).toBe(19.99);
+  });
+});
+
+describe("getUniqueOrderIdsForPriceRefresh", () => {
+  it("deduplicates order IDs for zero-price order item refreshes", () => {
+    expect(
+      getUniqueOrderIdsForPriceRefresh([
+        { amazon_order_id: "204-1234567-8901234" },
+        { amazon_order_id: "204-1234567-8901234" },
+        { amazon_order_id: "204-9999999-0000000" },
+      ])
+    ).toEqual(["204-1234567-8901234", "204-9999999-0000000"]);
+  });
+});
+
+describe("buildPendingEstimatePriceUpdates", () => {
+  it("prefers seller SKU prices over ASIN prices for pending order estimates", () => {
+    const updates = buildPendingEstimatePriceUpdates(
+      [
+        {
+          order_item_id: "item-001",
+          asin: "B0TEST12345",
+          sku: "SKU-001",
+          qty: 2,
+        },
+      ],
+      new Map([["SKU-001", 9.99]]),
+      new Map([["B0TEST12345", 12.49]])
+    );
+
+    expect(updates).toEqual([
+      { orderItemId: "item-001", itemPriceGross: 19.98 },
+    ]);
+  });
+
+  it("falls back to ASIN pricing when SKU pricing is unavailable", () => {
+    const updates = buildPendingEstimatePriceUpdates(
+      [
+        {
+          order_item_id: "item-001",
+          asin: "B0TEST12345",
+          sku: "SKU-001",
+          qty: 1,
+        },
+      ],
+      new Map(),
+      new Map([["B0TEST12345", 12.49]])
+    );
+
+    expect(updates).toEqual([
+      { orderItemId: "item-001", itemPriceGross: 12.49 },
+    ]);
   });
 });

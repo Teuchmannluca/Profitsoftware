@@ -8,6 +8,7 @@ export interface SalesMetrics {
   totalFees: number;
   totalCogs: number;
   adSpend: number;
+  expenses: number;
   estimatedProfit: number;
   unitsSold: number;
   orderCount: number;
@@ -111,7 +112,7 @@ export async function getSalesMetrics(from: Date, to: Date): Promise<SalesMetric
     console.error("[sales] RPC error:", error);
     return {
       grossSales: 0, vatCollected: 0, promoDiscount: 0, netRevenue: 0,
-      totalFees: 0, totalCogs: 0, adSpend: 0, estimatedProfit: 0, unitsSold: 0,
+      totalFees: 0, totalCogs: 0, adSpend: 0, expenses: 0, estimatedProfit: 0, unitsSold: 0,
       orderCount: 0, totalOrderCount: 0, margin: 0, roi: 0,
     };
   }
@@ -125,6 +126,7 @@ export async function getSalesMetrics(from: Date, to: Date): Promise<SalesMetric
     totalFees: d.totalFees ?? 0,
     totalCogs: d.totalCogs ?? 0,
     adSpend: d.adSpend ?? 0,
+    expenses: d.expenses ?? 0,
     estimatedProfit: d.estimatedProfit ?? 0,
     unitsSold: d.unitsSold ?? 0,
     orderCount: d.orderCount ?? 0,

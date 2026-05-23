@@ -189,8 +189,10 @@ export async function syncAds(): Promise<{ rowsWritten: number }> {
     }
   };
 
-  const results = await Promise.all([syncCampaigns(), syncProducts(), syncTargeting()]);
-  totalWritten = results[0] + results[1] + results[2];
+  // Run sequentially — Amazon queues parallel requests causing timeouts
+  totalWritten += await syncCampaigns();
+  totalWritten += await syncProducts();
+  totalWritten += await syncTargeting();
 
   console.log(`[ads-sync] Done, ${totalWritten} total rows written`);
   return { rowsWritten: totalWritten };
