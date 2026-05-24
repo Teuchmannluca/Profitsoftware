@@ -3,7 +3,7 @@ import { getRefundEvents } from "@/lib/sp-api/returns";
 import type { ShipmentEvent, FinancialShipmentItem } from "@/lib/sp-api/types";
 
 function mapRefundEventToReturns(event: ShipmentEvent) {
-  return event.ShipmentItemList.map((item: FinancialShipmentItem) => {
+  return (event.ShipmentItemList ?? []).map((item: FinancialShipmentItem) => {
     const charges = item.ItemChargeList ?? [];
     const totalRefund = charges.reduce(
       (sum, c) => sum + Math.abs(c.ChargeAmount.Amount),
@@ -79,7 +79,7 @@ export async function syncReturns(): Promise<{
       const chunk = returnRows.slice(i, i + 100);
       const { error: err } = await supabase
         .from("returns")
-        .upsert(chunk, { onConflict: "amazon_order_id,sku" });
+        .upsert(chunk, { onConflict: "amazon_order_id,sku,return_request_date" });
       if (err) {
         console.error(`[returns-sync] Return batch error:`, err.message);
       } else {

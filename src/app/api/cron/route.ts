@@ -5,6 +5,7 @@ import { syncInboundShipments } from "@/actions/sync-inbound-shipments";
 import { syncReimbursements } from "@/actions/sync-reimbursements";
 import { syncAds } from "@/actions/sync-ads";
 import { syncInventory } from "@/actions/sync-inventory";
+import { syncReturns } from "@/actions/sync-returns";
 import { runScheduledNotifications } from "@/lib/notifications/send";
 
 export const dynamic = "force-dynamic";
@@ -25,6 +26,7 @@ export async function GET(request: Request) {
     const inventoryResult = await syncInventory();
     const inboundResult = await syncInboundShipments();
     const reimbursementsResult = await syncReimbursements();
+    const returnsResult = await syncReturns();
     const adsResult = await syncAds();
 
     // Daily notifications run after the syncs so the digest reflects fresh data.
@@ -49,6 +51,7 @@ export async function GET(request: Request) {
       inventory: inventoryResult,
       inbound: inboundResult,
       reimbursements: reimbursementsResult,
+      returns: returnsResult,
       ads: adsResult,
       notifications: notificationsResult,
     });
