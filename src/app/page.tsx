@@ -98,13 +98,33 @@ export default async function DashboardPage({
   const totalRefunded = (refundRows ?? []).reduce((sum, r) => sum + (r.refunded_amount ?? 0), 0);
   const totalReimbursed = (reimbursementRows ?? []).reduce((sum, r) => sum + (r.amount ?? 0), 0);
 
+  const { data: inboundShipmentItems } = await supabase
+    .from("inbound_shipment_items")
+    .select("seller_sku, quantity_shipped, quantity_received, inbound_shipments!inner(shipment_status)")
+    .in("inbound_shipments.shipment_status", ["WORKING", "SHIPPED", "IN_TRANSIT", "RECEIVING", "CHECKED_IN"]);
+
+  const inboundBySku = new Map<string, number>();
+  for (const item of inboundShipmentItems ?? []) {
+    const pending = (item.quantity_shipped ?? 0) - (item.quantity_received ?? 0);
+    if (pending > 0) {
+      inboundBySku.set(item.seller_sku, (inboundBySku.get(item.seller_sku) ?? 0) + pending);
+    }
+  }
+
   const stockMap = new Map<string, { fulfillable: number; reserved: number; inbound: number }>();
   for (const snap of inventorySnaps ?? []) {
+    const shipmentInbound = inboundBySku.get(snap.sku) ?? 0;
+    const snapshotInbound = snap.afn_inbound ?? 0;
     stockMap.set(snap.sku, {
       fulfillable: snap.afn_fulfillable ?? 0,
       reserved: snap.afn_reserved ?? 0,
-      inbound: snap.afn_inbound ?? 0,
+      inbound: Math.max(shipmentInbound, snapshotInbound),
     });
+  }
+  for (const [sku, qty] of inboundBySku) {
+    if (!stockMap.has(sku)) {
+      stockMap.set(sku, { fulfillable: 0, reserved: 0, inbound: qty });
+    }
   }
 
   // Fetch active COGS
