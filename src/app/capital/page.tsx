@@ -9,7 +9,8 @@ import { SyncInboundButton } from "@/components/sync-inbound-button";
 import { SyncInventoryButton } from "@/components/sync-inventory-button";
 import { CapitalInventoryTable } from "@/components/capital-inventory-table";
 import { CapitalShipmentsTable } from "@/components/capital-shipments-table";
-import { getCapitalDetail } from "@/actions/capital-overview";
+import { CapitalStatusTable } from "@/components/capital-status-table";
+import { getCapitalDetail, getInventoryStatusBreakdown } from "@/actions/capital-overview";
 
 export const dynamic = "force-dynamic";
 
@@ -32,7 +33,10 @@ export default async function CapitalPage() {
     redirect("/login");
   }
 
-  const data = await getCapitalDetail();
+  const [data, statusRows] = await Promise.all([
+    getCapitalDetail(),
+    getInventoryStatusBreakdown(),
+  ]);
 
   const overview = data?.overview ?? {
     totalCapital: 0,
@@ -212,6 +216,9 @@ export default async function CapitalPage() {
               </div>
             </div>
           )}
+
+          {/* Inventory by status */}
+          <CapitalStatusTable rows={statusRows} />
 
           {/* Shipments table */}
           <CapitalShipmentsTable shipments={shipments} />

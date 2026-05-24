@@ -102,6 +102,144 @@ export async function getCapitalOverview(): Promise<CapitalOverviewData | null> 
   return { totalCapital, totalUnits, buckets, skusWithoutCogs };
 }
 
+// --- Inventory status breakdown table ---
+
+export interface InventoryStatusRow {
+  status: string;
+  units: number;
+  cost: number;
+  resale: number;
+  profit: number;
+  roi: number;
+}
+
+export async function getInventoryStatusBreakdown(): Promise<InventoryStatusRow[]> {
+  await requireAuth();
+  const supabase = createServiceClient();
+
+  const { data: latestRow } = await supabase
+    .from("inventory_snapshots")
+    .select("date")
+    .order("date", { ascending: false })
+    .limit(1)
+    .single();
+
+  if (!latestRow?.date) return [];
+
+  const [inventoryRes, productsRes, cogsRes, inboundRes] = await Promise.all([
+    supabase
+      .from("inventory_snapshots")
+      .select("sku, asin, afn_fulfillable, afn_reserved, afn_inbound, afn_unsellable")
+      .eq("date", latestRow.date),
+    supabase.from("products").select("sku, asin"),
+    supabase.from("cogs_periods").select("asin, total_cogs").is("valid_to", null),
+    supabase
+      .from("inbound_shipment_items")
+      .select("seller_sku, quantity_shipped, quantity_received, inbound_shipments!inner(shipment_status)")
+      .in("inbound_shipments.shipment_status", ["SHIPPED", "IN_TRANSIT", "RECEIVING", "CHECKED_IN"]),
+  ]);
+
+  const skuToAsin = new Map<string, string>();
+  for (const p of productsRes.data ?? []) {
+    if (p.asin) skuToAsin.set(p.sku, p.asin);
+  }
+  for (const snap of inventoryRes.data ?? []) {
+    if (snap.asin && !skuToAsin.has(snap.sku)) skuToAsin.set(snap.sku, snap.asin);
+  }
+
+  const asinToCogs = new Map<string, number>();
+  for (const c of cogsRes.data ?? []) {
+    asinToCogs.set(c.asin, parseFloat(String(c.total_cogs ?? "0")));
+  }
+
+  // Average sale price per SKU from last 30 days
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString();
+  const { data: recentSales } = await supabase
+    .from("order_items")
+    .select("sku, item_price_gross, qty, item_tax")
+    .gt("item_price_gross", 0)
+    .gt("qty", 0)
+    .gte("created_at", thirtyDaysAgo);
+
+  const skuSaleTotals = new Map<string, { revenue: number; units: number }>();
+  for (const sale of recentSales ?? []) {
+    const existing = skuSaleTotals.get(sale.sku) ?? { revenue: 0, units: 0 };
+    const exVat = parseFloat(String(sale.item_price_gross)) - parseFloat(String(sale.item_tax ?? 0));
+    existing.revenue += Math.max(exVat, 0);
+    existing.units += sale.qty ?? 1;
+    skuSaleTotals.set(sale.sku, existing);
+  }
+  const skuToResalePrice = new Map<string, number>();
+  for (const [sku, totals] of skuSaleTotals) {
+    if (totals.units > 0) skuToResalePrice.set(sku, totals.revenue / totals.units);
+  }
+
+  function cogsForSku(sku: string): number {
+    const asin = skuToAsin.get(sku);
+    return asin ? (asinToCogs.get(asin) ?? 0) : 0;
+  }
+
+  function resaleForSku(sku: string): number {
+    return skuToResalePrice.get(sku) ?? 0;
+  }
+
+  let availableUnits = 0, availableCost = 0, availableResale = 0;
+  let reservedUnits = 0, reservedCost = 0, reservedResale = 0;
+  let unsellableUnits = 0, unsellableCost = 0, unsellableResale = 0;
+
+  for (const snap of inventoryRes.data ?? []) {
+    const cogs = cogsForSku(snap.sku);
+    const resale = resaleForSku(snap.sku);
+
+    const f = snap.afn_fulfillable ?? 0;
+    availableUnits += f;
+    availableCost += f * cogs;
+    availableResale += f * resale;
+
+    const r = snap.afn_reserved ?? 0;
+    reservedUnits += r;
+    reservedCost += r * cogs;
+    reservedResale += r * resale;
+
+    const u = snap.afn_unsellable ?? 0;
+    unsellableUnits += u;
+    unsellableCost += u * cogs;
+    unsellableResale += u * resale;
+  }
+
+  // Inbound from shipment items
+  let inboundUnits = 0, inboundCost = 0, inboundResale = 0;
+  for (const item of inboundRes.data ?? []) {
+    const pending = (item.quantity_shipped ?? 0) - (item.quantity_received ?? 0);
+    if (pending <= 0) continue;
+    const cogs = cogsForSku(item.seller_sku);
+    const resale = resaleForSku(item.seller_sku);
+    inboundUnits += pending;
+    inboundCost += pending * cogs;
+    inboundResale += pending * resale;
+  }
+
+  function buildRow(status: string, units: number, cost: number, resale: number): InventoryStatusRow {
+    const profit = resale - cost;
+    const roi = cost > 0 ? (profit / cost) * 100 : 0;
+    return { status, units, cost, resale, profit, roi };
+  }
+
+  const rows = [
+    buildRow("Available", availableUnits, availableCost, availableResale),
+    buildRow("Reserved", reservedUnits, reservedCost, reservedResale),
+    buildRow("Inbound", inboundUnits, inboundCost, inboundResale),
+    buildRow("Unsellable", unsellableUnits, unsellableCost, unsellableResale),
+  ];
+
+  const totalUnits = rows.reduce((s, r) => s + r.units, 0);
+  const totalCost = rows.reduce((s, r) => s + r.cost, 0);
+  const totalResale = rows.reduce((s, r) => s + r.resale, 0);
+  rows.push(buildRow("Total", totalUnits, totalCost, totalResale));
+
+  return rows;
+}
+
 // --- Detailed capital data for the /capital page ---
 
 export interface CapitalProductRow {
