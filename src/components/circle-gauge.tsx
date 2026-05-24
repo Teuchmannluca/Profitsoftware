@@ -17,10 +17,9 @@ export function CircleGauge({
   formattedValue,
   subtitle,
   color,
-  gradient,
   shadow,
-  size = 220,
 }: CircleGaugeProps) {
+  const size = 220;
   const strokeWidth = 14;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
@@ -29,12 +28,12 @@ export function CircleGauge({
 
   return (
     <div
-      className={`relative flex flex-col items-center gap-4 rounded-3xl bg-card p-8 ${shadow} ring-1 ring-border/50`}
+      className={`relative flex flex-col items-center gap-2 md:gap-4 rounded-3xl bg-card p-4 md:p-8 ${shadow} ring-1 ring-border/50`}
     >
-      <div className="relative" style={{ width: size, height: size }}>
+      <div className="relative w-[120px] h-[120px] md:w-[220px] md:h-[220px]">
         <svg
-          width={size}
-          height={size}
+          width="100%"
+          height="100%"
           viewBox={`0 0 ${size} ${size}`}
           className="-rotate-90"
         >
@@ -62,17 +61,17 @@ export function CircleGauge({
           />
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-4xl font-bold tracking-tight font-mono text-foreground">
+          <span className="text-xl md:text-4xl font-bold tracking-tight font-mono text-foreground">
             {formattedValue}
           </span>
           {subtitle && (
-            <span className="text-xs text-muted-foreground mt-1 font-semibold uppercase tracking-widest">
+            <span className="text-[9px] md:text-xs text-muted-foreground mt-0.5 md:mt-1 font-semibold uppercase tracking-widest">
               {subtitle}
             </span>
           )}
         </div>
       </div>
-      <span className="text-sm font-bold text-muted-foreground uppercase tracking-widest">
+      <span className="text-[10px] md:text-sm font-bold text-muted-foreground uppercase tracking-widest">
         {label}
       </span>
     </div>

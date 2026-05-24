@@ -287,7 +287,7 @@ export function KpiSection({
           </button>
         </div>
       </div>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-5">
         {displayItemsFinal.map((item) => {
           if (mode === "circle") {
             return <CircleGauge key={item.label} {...item} />;
