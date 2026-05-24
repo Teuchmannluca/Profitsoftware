@@ -4,6 +4,7 @@ import { syncFinances } from "@/actions/sync-finances";
 import { syncInboundShipments } from "@/actions/sync-inbound-shipments";
 import { syncReimbursements } from "@/actions/sync-reimbursements";
 import { syncAds } from "@/actions/sync-ads";
+import { syncInventory } from "@/actions/sync-inventory";
 import { runScheduledNotifications } from "@/lib/notifications/send";
 
 export const dynamic = "force-dynamic";
@@ -21,6 +22,7 @@ export async function GET(request: Request) {
   try {
     const ordersResult = await syncOrders();
     const financesResult = await syncFinances();
+    const inventoryResult = await syncInventory();
     const inboundResult = await syncInboundShipments();
     const reimbursementsResult = await syncReimbursements();
     const adsResult = await syncAds();
@@ -44,6 +46,7 @@ export async function GET(request: Request) {
       duration: `${duration}s`,
       orders: ordersResult,
       finances: financesResult,
+      inventory: inventoryResult,
       inbound: inboundResult,
       reimbursements: reimbursementsResult,
       ads: adsResult,
