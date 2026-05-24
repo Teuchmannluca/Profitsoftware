@@ -186,7 +186,7 @@ export function OrderDetails({ orders }: { orders: OrderWithItems[] }) {
         </div>
 
         {/* Status filter pills */}
-        <div className="flex items-center gap-1.5 mt-3">
+        <div className="flex items-center gap-1.5 mt-3 overflow-x-auto pb-1">
           {STATUS_FILTERS.map((f) => {
             const count = statusCounts[f.key] ?? 0;
             if (f.key !== "all" && count === 0) return null;
@@ -219,7 +219,7 @@ export function OrderDetails({ orders }: { orders: OrderWithItems[] }) {
 
         {/* Grand totals bar */}
         {orders.length > 0 && (
-          <div className="flex items-center gap-4 mt-3 pt-3 border-t border-border/40">
+          <div className="flex flex-wrap items-center gap-3 md:gap-4 mt-3 pt-3 border-t border-border/40">
             <div className="flex items-center gap-1.5">
               <Receipt className="h-3.5 w-3.5 text-sky-500" />
               <span className="text-xs text-muted-foreground">Gross:</span>
@@ -355,7 +355,7 @@ export function OrderDetails({ orders }: { orders: OrderWithItems[] }) {
                   </div>
 
                   {/* Order summary mini bar */}
-                  <div className="flex items-center gap-4 mb-3 px-2">
+                  <div className="flex flex-wrap items-center gap-3 md:gap-4 mb-3 px-2">
                     <div className="flex items-center gap-1">
                       <Tag className="h-3 w-3 text-sky-500" />
                       <span className={`text-[11px] font-mono font-semibold ${isPending && orderGross === 0 ? "text-muted-foreground" : "text-foreground"}`}>
@@ -421,11 +421,11 @@ export function OrderDetails({ orders }: { orders: OrderWithItems[] }) {
                                 alt={item.title ?? item.sku}
                                 width={64}
                                 height={64}
-                                className="rounded-xl object-cover ring-1 ring-border/50 hover:ring-indigo-300 transition-all"
+                                className="rounded-xl object-cover ring-1 ring-border/50 hover:ring-indigo-300 transition-all h-10 w-10 md:h-16 md:w-16"
                               />
                             ) : (
-                              <div className="h-16 w-16 rounded-xl bg-muted flex items-center justify-center ring-1 ring-border/50 hover:ring-indigo-300 transition-all">
-                                <Package className="h-5 w-5 text-muted-foreground/40" />
+                              <div className="h-10 w-10 md:h-16 md:w-16 rounded-xl bg-muted flex items-center justify-center ring-1 ring-border/50 hover:ring-indigo-300 transition-all">
+                                <Package className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground/40" />
                               </div>
                             )}
                           </Link>
@@ -472,8 +472,8 @@ export function OrderDetails({ orders }: { orders: OrderWithItems[] }) {
                             </p>
                           </div>
 
-                          {/* Tax */}
-                          <div className="text-right shrink-0 w-16">
+                          {/* Tax — hidden on mobile */}
+                          <div className="text-right shrink-0 w-16 hidden lg:block">
                             <p className="text-sm font-bold font-mono text-foreground">
                               {formatMoney(displayTax)}
                             </p>
@@ -482,8 +482,8 @@ export function OrderDetails({ orders }: { orders: OrderWithItems[] }) {
                             </p>
                           </div>
 
-                          {/* Shipping */}
-                          <div className="text-right shrink-0 w-16">
+                          {/* Shipping — hidden on mobile */}
+                          <div className="text-right shrink-0 w-16 hidden lg:block">
                             <p className="text-sm font-bold font-mono text-foreground">
                               {formatMoney(item.shipping_price)}
                             </p>
@@ -492,8 +492,8 @@ export function OrderDetails({ orders }: { orders: OrderWithItems[] }) {
                             </p>
                           </div>
 
-                          {/* Net price */}
-                          <div className="text-right shrink-0 w-20">
+                          {/* Net price — hidden on mobile */}
+                          <div className="text-right shrink-0 w-20 hidden md:block">
                             <p className="text-sm font-bold font-mono text-foreground">
                               {formatMoney(netPrice)}
                             </p>
@@ -502,8 +502,8 @@ export function OrderDetails({ orders }: { orders: OrderWithItems[] }) {
                             </p>
                           </div>
 
-                          {/* COGS */}
-                          <div className="text-right shrink-0 w-16">
+                          {/* COGS — hidden on mobile */}
+                          <div className="text-right shrink-0 w-16 hidden lg:block">
                             <p className="text-sm font-bold font-mono text-muted-foreground">
                               {formatMoney((item.cogs_snapshot ?? 0) * item.qty)}
                             </p>

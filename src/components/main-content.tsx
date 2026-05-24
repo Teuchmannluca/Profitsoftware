@@ -19,7 +19,7 @@ export function MainContent({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <main className={`transition-all duration-200 ${collapsed ? "pl-[68px]" : "pl-[240px]"}`}>
+    <main className={`transition-all duration-200 pl-0 ${collapsed ? "md:pl-[68px]" : "md:pl-[240px]"}`}>
       {children}
     </main>
   );

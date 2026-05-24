@@ -50,7 +50,7 @@ export default async function ProductDetailPage({
         <Sidebar email={user.email ?? ""} />
         <MainContent>
           <PageHeader title="Product Insight" subtitle="Product not found" />
-          <div className="p-8">
+          <div className="p-4 md:p-8">
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <div className="rounded-2xl bg-rose-50 dark:bg-rose-950 p-4 mb-4">
                 <Package className="h-6 w-6 text-rose-400" />
@@ -80,7 +80,7 @@ export default async function ProductDetailPage({
           subtitle={product.title ?? product.asin}
         />
 
-        <div className="p-8 space-y-8">
+        <div className="p-4 md:p-8 space-y-8">
           {/* A. Product Header */}
           <Card className="overflow-hidden shadow-card ring-1 ring-border/50">
             <CardContent className="p-6">

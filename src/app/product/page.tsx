@@ -30,7 +30,7 @@ export default async function ProductPage() {
           subtitle="Deep dive into product performance"
         />
 
-        <div className="p-8">
+        <div className="p-4 md:p-8">
           <ProductSearch products={products} />
         </div>
       </MainContent>

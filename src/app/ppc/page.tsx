@@ -63,7 +63,7 @@ export default async function PpcPage({
           }
         />
 
-        <div className="p-8 space-y-6">
+        <div className="p-4 md:p-8 space-y-6">
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
             <StatBox
               label="Ad Spend"

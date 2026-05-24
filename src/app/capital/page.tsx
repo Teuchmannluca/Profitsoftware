@@ -77,7 +77,7 @@ export default async function CapitalPage() {
           }
         />
 
-        <div className="p-8 space-y-8">
+        <div className="p-4 md:p-8 space-y-8">
           {/* Circle gauges */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
             <CircleGauge

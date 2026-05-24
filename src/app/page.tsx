@@ -219,7 +219,7 @@ export default async function DashboardPage({
           }
         />
 
-        <div className="p-8 space-y-8">
+        <div className="p-4 md:p-8 space-y-6 md:space-y-8">
           {/* KPI gauges row */}
           <KpiSection
             items={[

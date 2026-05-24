@@ -198,7 +198,7 @@ export default async function MapPage() {
           subtitle="Geographic distribution of your orders"
         />
 
-        <div className="p-8 space-y-6">
+        <div className="p-4 md:p-8 space-y-6">
           {/* KPI bar */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="rounded-xl bg-card p-4 ring-1 ring-border/50 shadow-card">

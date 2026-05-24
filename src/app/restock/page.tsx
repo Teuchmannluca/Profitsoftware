@@ -65,7 +65,7 @@ export default async function RestockPage() {
           subtitle="Inventory forecasting & reorder recommendations"
         />
 
-        <div className="p-8 space-y-6">
+        <div className="p-4 md:p-8 space-y-6">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <StatBox
               label="Restock Now"

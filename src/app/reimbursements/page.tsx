@@ -86,7 +86,7 @@ export default async function ReimbursementsPage({
           action={<SyncReturnsButton />}
         />
 
-        <div className="p-8 space-y-6">
+        <div className="p-4 md:p-8 space-y-6">
           <PeriodFilter />
 
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">

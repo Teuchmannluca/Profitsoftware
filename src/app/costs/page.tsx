@@ -111,7 +111,7 @@ export default async function CostsPage() {
           subtitle="Product cost management & COGS tracking"
         />
 
-        <div className="p-8">
+        <div className="p-4 md:p-8">
           <CogsTable rows={rows} historyByAsin={Object.fromEntries(historyByAsin)} />
         </div>
       </MainContent>

@@ -87,7 +87,7 @@ export default async function InventoryPage() {
           action={<SyncInventoryButton />}
         />
 
-        <div className="p-8 space-y-6">
+        <div className="p-4 md:p-8 space-y-6">
           {/* Stock summary pills */}
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2 rounded-full bg-emerald-50 dark:bg-emerald-950 px-3.5 py-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-400 ring-1 ring-emerald-600/15 dark:ring-emerald-400/15">

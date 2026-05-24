@@ -33,7 +33,7 @@ export default async function NotificationsPage() {
           subtitle="Manage daily email & Slack notification profiles"
         />
 
-        <div className="p-8">
+        <div className="p-4 md:p-8">
           <NotificationPageClient
             initialProfiles={profiles}
             initialHistory={history}
