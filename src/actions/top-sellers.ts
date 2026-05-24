@@ -2,6 +2,7 @@
 
 import { createServiceClient } from "@/lib/supabase/service";
 import { getDateRange } from "@/lib/queries/sales";
+import { requireAuth } from "@/lib/auth-guard";
 
 export type TopSellersSortBy = "units" | "revenue" | "profit";
 export type TopSellersPeriod =
@@ -24,6 +25,7 @@ export async function getTopSellers(
   period: TopSellersPeriod,
   sortBy: TopSellersSortBy
 ): Promise<TopSellerItem[]> {
+  await requireAuth();
   const supabase = createServiceClient();
 
   let query = supabase

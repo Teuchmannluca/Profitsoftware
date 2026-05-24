@@ -1,4 +1,5 @@
 import { createServiceClient } from "@/lib/supabase/service";
+import { requireAuth } from "@/lib/auth-guard";
 
 export interface BusinessSettings {
   vat_status: string;
@@ -31,6 +32,7 @@ const DEFAULT_SETTINGS: BusinessSettings = {
 export async function getSettings(): Promise<BusinessSettings> {
   "use server";
 
+  await requireAuth();
   const supabase = createServiceClient();
 
   const { data, error } = await supabase
@@ -63,6 +65,7 @@ export async function updateSettings(
 ): Promise<{ success: boolean; error?: string }> {
   "use server";
 
+  await requireAuth();
   const supabase = createServiceClient();
 
   const { error } = await supabase

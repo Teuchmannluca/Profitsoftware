@@ -1,4 +1,5 @@
 import { createServiceClient } from "@/lib/supabase/service";
+import { requireAuth } from "@/lib/auth-guard";
 
 export interface CapitalBucket {
   label: string;
@@ -15,6 +16,7 @@ export interface CapitalOverviewData {
 }
 
 export async function getCapitalOverview(): Promise<CapitalOverviewData | null> {
+  await requireAuth();
   const supabase = createServiceClient();
 
   const { data: latestRow } = await supabase
@@ -143,6 +145,7 @@ export interface CapitalDetailData {
 }
 
 export async function getCapitalDetail(): Promise<CapitalDetailData | null> {
+  await requireAuth();
   const supabase = createServiceClient();
 
   const { data: latestRow } = await supabase

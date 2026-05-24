@@ -1,6 +1,7 @@
 "use server";
 
 import { createServiceClient } from "@/lib/supabase/service";
+import { requireAuth } from "@/lib/auth-guard";
 
 export interface DailyDataPoint {
   date: string;
@@ -15,6 +16,7 @@ export async function getDailyMetrics(
   from: Date,
   to: Date
 ): Promise<DailyDataPoint[]> {
+  await requireAuth();
   const supabase = createServiceClient();
 
   const { data, error } = await supabase.rpc("get_daily_metrics", {

@@ -1,4 +1,5 @@
 import { createServiceClient } from "@/lib/supabase/service";
+import { requireAuth } from "@/lib/auth-guard";
 
 export async function addCogsPeriod(data: {
   asin: string;
@@ -9,6 +10,7 @@ export async function addCogsPeriod(data: {
 }): Promise<{ success: boolean; error?: string }> {
   "use server";
 
+  await requireAuth();
   const supabase = createServiceClient();
 
   const { error } = await supabase.from("cogs_periods").insert({
@@ -33,6 +35,7 @@ export async function updateCogsPeriod(
 ): Promise<{ success: boolean; error?: string }> {
   "use server";
 
+  await requireAuth();
   const supabase = createServiceClient();
 
   const { error } = await supabase
@@ -57,6 +60,7 @@ export async function deleteCogsPeriod(
 ): Promise<{ success: boolean; error?: string }> {
   "use server";
 
+  await requireAuth();
   const supabase = createServiceClient();
 
   const { error } = await supabase.from("cogs_periods").delete().eq("id", id);
@@ -76,6 +80,7 @@ export async function setProductCost(
 ): Promise<{ success: boolean; error?: string }> {
   "use server";
 
+  await requireAuth();
   const supabase = createServiceClient();
   const today = new Date().toISOString().split("T")[0];
 
@@ -119,6 +124,7 @@ export async function setProductVat(
 ): Promise<{ success: boolean; error?: string }> {
   "use server";
 
+  await requireAuth();
   const supabase = createServiceClient();
 
   const { error } = await supabase

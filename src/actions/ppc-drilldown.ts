@@ -1,6 +1,7 @@
 "use server";
 
 import { createServiceClient } from "@/lib/supabase/service";
+import { requireAuth } from "@/lib/auth-guard";
 
 export interface PpcCampaignRow {
   campaignId: string;
@@ -45,6 +46,7 @@ export async function getPpcCampaigns(
   from: Date,
   to: Date
 ): Promise<PpcCampaignRow[]> {
+  await requireAuth();
   const supabase = createServiceClient();
   const fromDate = toLocalDate(from);
   const toDate = toLocalDate(to);
@@ -108,6 +110,7 @@ export async function getPpcAdGroups(
   from: Date,
   to: Date
 ): Promise<PpcAdGroupRow[]> {
+  await requireAuth();
   const supabase = createServiceClient();
   const fromDate = toLocalDate(from);
   const toDate = toLocalDate(to);
@@ -152,6 +155,7 @@ export async function getPpcKeywords(
   from: Date,
   to: Date
 ): Promise<PpcKeywordRow[]> {
+  await requireAuth();
   const supabase = createServiceClient();
   const fromDate = toLocalDate(from);
   const toDate = toLocalDate(to);

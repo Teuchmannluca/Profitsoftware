@@ -1,6 +1,7 @@
 "use server";
 
 import { createServiceClient } from "@/lib/supabase/service";
+import { requireAuth } from "@/lib/auth-guard";
 
 export interface Expense {
   id: string;
@@ -14,6 +15,7 @@ export interface Expense {
 }
 
 export async function getExpenses(): Promise<Expense[]> {
+  await requireAuth();
   const supabase = createServiceClient();
   const { data } = await supabase
     .from("expenses")
@@ -34,6 +36,7 @@ export async function addExpense(data: {
   startDate: string;
   notes?: string;
 }): Promise<{ success: boolean; error?: string }> {
+  await requireAuth();
   const supabase = createServiceClient();
   const { error } = await supabase.from("expenses").insert({
     name: data.name,
@@ -50,6 +53,7 @@ export async function updateExpense(
   id: string,
   data: { name?: string; amount?: number; active?: boolean; notes?: string }
 ): Promise<{ success: boolean; error?: string }> {
+  await requireAuth();
   const supabase = createServiceClient();
   const update: Record<string, unknown> = {};
   if (data.name !== undefined) update.name = data.name;
@@ -63,6 +67,7 @@ export async function updateExpense(
 }
 
 export async function deleteExpense(id: string): Promise<{ success: boolean; error?: string }> {
+  await requireAuth();
   const supabase = createServiceClient();
   const { error } = await supabase.from("expenses").delete().eq("id", id);
   if (error) return { success: false, error: error.message };

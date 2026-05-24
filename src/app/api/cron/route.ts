@@ -50,8 +50,7 @@ export async function GET(request: Request) {
       notifications: notificationsResult,
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    console.error("[cron] Sync failed:", message);
-    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+    console.error("[cron] Sync failed:", err instanceof Error ? err.message : err);
+    return NextResponse.json({ ok: false, error: "Internal server error" }, { status: 500 });
   }
 }
