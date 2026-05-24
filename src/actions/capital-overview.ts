@@ -376,6 +376,56 @@ export async function getCapitalDetail(): Promise<CapitalDetailData | null> {
     });
   }
 
+  // Merge inbound from active shipment items into product rows
+  const activeStatuses = new Set(["WORKING", "SHIPPED", "IN_TRANSIT", "RECEIVING", "CHECKED_IN"]);
+  const activeShipmentIds = (shipmentsRes.data ?? [])
+    .filter((s) => activeStatuses.has(s.shipment_status))
+    .map((s) => s.shipment_id);
+
+  let activeShipmentItems: { shipment_id: string; seller_sku: string; quantity_shipped: number; quantity_received: number }[] = [];
+  if (activeShipmentIds.length > 0) {
+    const { data: items } = await supabase
+      .from("inbound_shipment_items")
+      .select("shipment_id, seller_sku, quantity_shipped, quantity_received")
+      .in("shipment_id", activeShipmentIds);
+    activeShipmentItems = items ?? [];
+  }
+
+  const inboundBySku = new Map<string, number>();
+  for (const item of activeShipmentItems) {
+    const pending = (item.quantity_shipped ?? 0) - (item.quantity_received ?? 0);
+    if (pending > 0) {
+      inboundBySku.set(item.seller_sku, (inboundBySku.get(item.seller_sku) ?? 0) + pending);
+    }
+  }
+
+  for (const row of productRows) {
+    const shipmentInbound = inboundBySku.get(row.sku) ?? 0;
+    if (shipmentInbound > row.inbound) {
+      row.inbound = shipmentInbound;
+      row.totalValue = (row.fulfillable + row.reserved + row.unsellable + row.inbound) * row.cogs;
+    }
+    inboundBySku.delete(row.sku);
+  }
+
+  for (const [sku, qty] of inboundBySku) {
+    const prod = skuToProduct.get(sku);
+    const cogs = cogsForSku(sku);
+    if (cogs === 0) skusWithoutCogs++;
+    productRows.push({
+      sku,
+      asin: prod?.asin ?? null,
+      title: prod?.title ?? null,
+      image_url: prod?.image_url ?? null,
+      fulfillable: 0,
+      reserved: 0,
+      unsellable: 0,
+      inbound: qty,
+      cogs,
+      totalValue: qty * cogs,
+    });
+  }
+
   productRows.sort((a, b) => b.totalValue - a.totalValue);
 
   // Build shipment rows
