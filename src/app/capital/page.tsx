@@ -218,7 +218,7 @@ export default async function CapitalPage() {
           )}
 
           {/* Inventory by status */}
-          <CapitalStatusTable rows={statusRows} />
+          <CapitalStatusTable rows={statusRows} products={products} />
 
           {/* Shipments table */}
           <CapitalShipmentsTable shipments={shipments} />
