@@ -12,6 +12,7 @@ import {
   Warehouse,
   AlertTriangle,
   Ban,
+  Clock,
   type LucideIcon,
 } from "lucide-react";
 
@@ -29,6 +30,7 @@ const iconMap: Record<string, LucideIcon> = {
   Warehouse,
   AlertTriangle,
   Ban,
+  Clock,
 };
 
 interface StatBoxProps {

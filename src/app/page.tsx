@@ -11,7 +11,6 @@ import { PeriodFilter } from "@/components/period-filter";
 import { getDateRange, getSalesMetrics } from "@/lib/queries/sales";
 import { Card, CardContent } from "@/components/ui/card";
 import { TopSellersCard } from "@/components/top-sellers-card";
-import { PendingOrdersCard, type PendingOrderRow } from "@/components/pending-orders-card";
 import { MainContent } from "@/components/main-content";
 import Image from "next/image";
 
@@ -209,48 +208,10 @@ export default async function DashboardPage({
     }
   }
 
-  // Pending / unshipped orders
-  const { data: pendingOrders } = await supabase
+  const { count: pendingCount } = await supabase
     .from("orders")
-    .select("amazon_order_id, purchase_date, order_status")
-    .in("order_status", ["Pending", "Unshipped", "PartiallyShipped"])
-    .order("purchase_date", { ascending: false })
-    .limit(20);
-
-  const pendingIds = pendingOrders?.map((o) => o.amazon_order_id) ?? [];
-  const { data: pendingItems } = pendingIds.length > 0
-    ? await supabase
-        .from("order_items")
-        .select("amazon_order_id, sku, qty, item_price_gross")
-        .in("amazon_order_id", pendingIds)
-    : { data: [] };
-
-  const pendingSkus = [...new Set((pendingItems ?? []).map((i) => i.sku).filter(Boolean))];
-  const { data: pendingProducts } = pendingSkus.length > 0
-    ? await supabase.from("products").select("sku, title, image_url").in("sku", pendingSkus)
-    : { data: [] };
-  const pendingProductMap = new Map(pendingProducts?.map((p) => [p.sku, p]) ?? []);
-
-  const pendingOrderRows: PendingOrderRow[] = (pendingOrders ?? []).map((o) => {
-    const items = (pendingItems ?? [])
-      .filter((i) => i.amazon_order_id === o.amazon_order_id)
-      .map((i) => {
-        const prod = pendingProductMap.get(i.sku);
-        return {
-          sku: i.sku,
-          title: prod?.title ?? null,
-          image_url: prod?.image_url ?? null,
-          qty: i.qty ?? 1,
-          price: parseFloat(String(i.item_price_gross ?? "0")),
-        };
-      });
-    return {
-      amazon_order_id: o.amazon_order_id,
-      purchase_date: o.purchase_date,
-      order_status: o.order_status,
-      items: items.length > 0 ? items : [{ sku: "—", title: null, image_url: null, qty: 1, price: 0 }],
-    };
-  });
+    .select("*", { count: "exact", head: true })
+    .in("order_status", ["Pending", "Unshipped", "PartiallyShipped"]);
 
   // Previous period for comparison
   const periodMs = to.getTime() - from.getTime();
@@ -395,6 +356,12 @@ export default async function DashboardPage({
               iconName="TrendingUp"
               gradient="emerald"
             />
+            <StatBox
+              label="Pending Orders"
+              value={pendingCount ?? 0}
+              iconName="Clock"
+              gradient="amber"
+            />
           </div>
 
           {/* Latest Sale */}
@@ -465,19 +432,13 @@ export default async function DashboardPage({
             );
           })()}
 
-          {/* Pending Orders + Top Sellers + Sync Log */}
-          <div className="grid gap-6 lg:grid-cols-3">
-            <div className="lg:col-span-2">
-              <PendingOrdersCard orders={pendingOrderRows} />
-            </div>
-            <div>
-              <SyncLogCard logs={syncLogs ?? []} />
-            </div>
-          </div>
-
+          {/* Top Sellers + Sync Log */}
           <div className="grid gap-6 lg:grid-cols-3">
             <div className="lg:col-span-2">
               <TopSellersCard initialData={topSellers} />
+            </div>
+            <div>
+              <SyncLogCard logs={syncLogs ?? []} />
             </div>
           </div>
         </div>
