@@ -1,4 +1,4 @@
-import { spApiFetch } from "./client";
+import { spApiFetch, NextTokenExpiredError } from "./client";
 import { refreshAccessToken } from "./auth";
 import type {
   InventorySummary,
@@ -8,30 +8,41 @@ import type {
 
 export async function getInventorySummaries(): Promise<InventorySummary[]> {
   const marketplaceId = process.env.SP_API_MARKETPLACE_ID!;
-  const allSummaries: InventorySummary[] = [];
-  let nextToken: string | undefined;
 
-  do {
-    const params = new URLSearchParams({
-      details: "true",
-      granularityType: "Marketplace",
-      granularityId: marketplaceId,
-      marketplaceIds: marketplaceId,
-    });
-    if (nextToken) {
-      params.set("nextToken", nextToken);
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const allSummaries: InventorySummary[] = [];
+      let nextToken: string | undefined;
+
+      do {
+        const params = new URLSearchParams({
+          details: "true",
+          granularityType: "Marketplace",
+          granularityId: marketplaceId,
+          marketplaceIds: marketplaceId,
+        });
+        if (nextToken) {
+          params.set("nextToken", nextToken);
+        }
+
+        const response = await spApiFetch(
+          `/fba/inventory/v1/summaries?${params}`
+        );
+        const data: GetInventorySummariesPayload = await response.json();
+
+        allSummaries.push(...data.payload.inventorySummaries);
+        nextToken = data.pagination?.nextToken ?? undefined;
+      } while (nextToken);
+
+      return allSummaries;
+    } catch (e) {
+      if (e instanceof NextTokenExpiredError && attempt === 0) {
+        console.log(`[inventory] NextToken expired, restarting pagination...`);
+        continue;
+      }
+      throw e;
     }
-
-    const response = await spApiFetch(
-      `/fba/inventory/v1/summaries?${params}`
-    );
-    const data: GetInventorySummariesPayload = await response.json();
-
-    allSummaries.push(...data.payload.inventorySummaries);
-    nextToken = data.pagination?.nextToken ?? undefined;
-  } while (nextToken);
-
-  return allSummaries;
+  }
 }
 
 export async function getCatalogItemImage(
