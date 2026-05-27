@@ -48,9 +48,21 @@ export interface InventorySummary {
     fulfillableQuantity?: number;
     reservedQuantity?: {
       totalReservedQuantity?: number;
+      pendingCustomerOrderQuantity?: number;
+      pendingTransshipmentQuantity?: number;
+      fcProcessingQuantity?: number;
+    };
+    researchingQuantity?: {
+      totalResearchingQuantity?: number;
     };
     unfulfillableQuantity?: {
       totalUnfulfillableQuantity?: number;
+      customerDamagedQuantity?: number;
+      warehouseDamagedQuantity?: number;
+      distributorDamagedQuantity?: number;
+      carrierDamagedQuantity?: number;
+      defectiveQuantity?: number;
+      expiredQuantity?: number;
     };
   };
 }

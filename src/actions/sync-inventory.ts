@@ -19,17 +19,26 @@ export function mapSummaryToProduct(summary: InventorySummary) {
 
 export function mapSummaryToSnapshot(summary: InventorySummary, date: string) {
   const details = summary.inventoryDetails;
+  const reserved = details?.reservedQuantity;
+  const unfulfillable = details?.unfulfillableQuantity;
   return {
     date,
     sku: summary.sellerSku,
     asin: summary.asin,
     afn_fulfillable: details?.fulfillableQuantity ?? 0,
-    afn_reserved: details?.reservedQuantity?.totalReservedQuantity ?? 0,
-    afn_unsellable:
-      details?.unfulfillableQuantity?.totalUnfulfillableQuantity ?? 0,
+    afn_reserved: reserved?.totalReservedQuantity ?? 0,
+    afn_unsellable: unfulfillable?.totalUnfulfillableQuantity ?? 0,
     afn_inbound: 0,
     mfn_quantity: 0,
     total_quantity: summary.totalQuantity ?? 0,
+    afn_researching: details?.researchingQuantity?.totalResearchingQuantity ?? 0,
+    afn_customer_damaged: unfulfillable?.customerDamagedQuantity ?? 0,
+    afn_warehouse_damaged: unfulfillable?.warehouseDamagedQuantity ?? 0,
+    afn_distributor_damaged: unfulfillable?.distributorDamagedQuantity ?? 0,
+    afn_carrier_damaged: unfulfillable?.carrierDamagedQuantity ?? 0,
+    afn_defective: unfulfillable?.defectiveQuantity ?? 0,
+    afn_pending_customer_order: reserved?.pendingCustomerOrderQuantity ?? 0,
+    afn_fc_processing: reserved?.fcProcessingQuantity ?? 0,
   };
 }
 

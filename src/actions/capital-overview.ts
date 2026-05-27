@@ -126,10 +126,12 @@ export async function getInventoryStatusBreakdown(): Promise<InventoryStatusRow[
 
   if (!latestRow?.date) return [];
 
+  const detailFields = "sku, asin, afn_fulfillable, afn_reserved, afn_inbound, afn_unsellable, afn_researching, afn_customer_damaged, afn_warehouse_damaged, afn_distributor_damaged, afn_carrier_damaged, afn_defective, afn_pending_customer_order, afn_fc_processing";
+
   const [inventoryRes, productsRes, cogsRes, inboundRes] = await Promise.all([
     supabase
       .from("inventory_snapshots")
-      .select("sku, asin, afn_fulfillable, afn_reserved, afn_inbound, afn_unsellable")
+      .select(detailFields)
       .eq("date", latestRow.date),
     supabase.from("products").select("sku, asin"),
     supabase.from("cogs_periods").select("asin, total_cogs").is("valid_to", null),
@@ -152,7 +154,6 @@ export async function getInventoryStatusBreakdown(): Promise<InventoryStatusRow[
     asinToCogs.set(c.asin, parseFloat(String(c.total_cogs ?? "0")));
   }
 
-  // Average sale price per SKU from last 30 days
   const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString();
   const { data: recentSales } = await supabase
     .from("order_items")
@@ -183,59 +184,57 @@ export async function getInventoryStatusBreakdown(): Promise<InventoryStatusRow[
     return skuToResalePrice.get(sku) ?? 0;
   }
 
-  let availableUnits = 0, availableCost = 0, availableResale = 0;
-  let reservedUnits = 0, reservedCost = 0, reservedResale = 0;
-  let unsellableUnits = 0, unsellableCost = 0, unsellableResale = 0;
+  type Acc = { units: number; cost: number; resale: number };
+  const cats: Record<string, Acc> = {};
+  const add = (key: string, qty: number, sku: string) => {
+    if (!cats[key]) cats[key] = { units: 0, cost: 0, resale: 0 };
+    const cogs = cogsForSku(sku);
+    const resale = resaleForSku(sku);
+    cats[key].units += qty;
+    cats[key].cost += qty * cogs;
+    cats[key].resale += qty * resale;
+  };
 
   for (const snap of inventoryRes.data ?? []) {
-    const cogs = cogsForSku(snap.sku);
-    const resale = resaleForSku(snap.sku);
-
-    const f = snap.afn_fulfillable ?? 0;
-    availableUnits += f;
-    availableCost += f * cogs;
-    availableResale += f * resale;
-
-    const r = snap.afn_reserved ?? 0;
-    reservedUnits += r;
-    reservedCost += r * cogs;
-    reservedResale += r * resale;
-
-    const u = snap.afn_unsellable ?? 0;
-    unsellableUnits += u;
-    unsellableCost += u * cogs;
-    unsellableResale += u * resale;
+    add("Fulfillable", snap.afn_fulfillable ?? 0, snap.sku);
+    add("Reserved", snap.afn_reserved ?? 0, snap.sku);
+    add("Inbound", snap.afn_inbound ?? 0, snap.sku);
+    add("Researching", snap.afn_researching ?? 0, snap.sku);
+    add("Customer Damaged", snap.afn_customer_damaged ?? 0, snap.sku);
+    add("Warehouse Damaged", snap.afn_warehouse_damaged ?? 0, snap.sku);
+    add("Distributor Damage", snap.afn_distributor_damaged ?? 0, snap.sku);
+    add("Carrier Damaged", snap.afn_carrier_damaged ?? 0, snap.sku);
+    add("Defective", snap.afn_defective ?? 0, snap.sku);
+    add("Customer Order", snap.afn_pending_customer_order ?? 0, snap.sku);
+    add("FC Processing", snap.afn_fc_processing ?? 0, snap.sku);
   }
 
-  // Inbound from shipment items
-  let inboundUnits = 0, inboundCost = 0, inboundResale = 0;
   for (const item of inboundRes.data ?? []) {
     const pending = (item.quantity_shipped ?? 0) - (item.quantity_received ?? 0);
     if (pending <= 0) continue;
-    const cogs = cogsForSku(item.seller_sku);
-    const resale = resaleForSku(item.seller_sku);
-    inboundUnits += pending;
-    inboundCost += pending * cogs;
-    inboundResale += pending * resale;
+    add("Inbound", pending, item.seller_sku);
   }
 
-  function buildRow(status: string, units: number, cost: number, resale: number): InventoryStatusRow {
-    const profit = resale - cost;
-    const roi = cost > 0 ? (profit / cost) * 100 : 0;
-    return { status, units, cost, resale, profit, roi };
+  function buildRow(status: string, acc: Acc): InventoryStatusRow {
+    const profit = acc.resale - acc.cost;
+    const roi = acc.cost > 0 ? (profit / acc.cost) * 100 : 0;
+    return { status, units: acc.units, cost: acc.cost, resale: acc.resale, profit, roi };
   }
 
-  const rows = [
-    buildRow("Available", availableUnits, availableCost, availableResale),
-    buildRow("Reserved", reservedUnits, reservedCost, reservedResale),
-    buildRow("Inbound", inboundUnits, inboundCost, inboundResale),
-    buildRow("Unsellable", unsellableUnits, unsellableCost, unsellableResale),
+  const categoryOrder = [
+    "Fulfillable", "Reserved", "Inbound", "Researching",
+    "Customer Damaged", "Warehouse Damaged", "Distributor Damage",
+    "Carrier Damaged", "Defective", "Customer Order", "FC Processing",
   ];
 
-  const totalUnits = rows.reduce((s, r) => s + r.units, 0);
-  const totalCost = rows.reduce((s, r) => s + r.cost, 0);
-  const totalResale = rows.reduce((s, r) => s + r.resale, 0);
-  rows.push(buildRow("Total", totalUnits, totalCost, totalResale));
+  const rows = categoryOrder.map((key) =>
+    buildRow(key, cats[key] ?? { units: 0, cost: 0, resale: 0 })
+  );
+
+  const allUnits = rows.reduce((s, r) => s + r.units, 0);
+  const allCost = rows.reduce((s, r) => s + r.cost, 0);
+  const allResale = rows.reduce((s, r) => s + r.resale, 0);
+  rows.unshift(buildRow("All", { units: allUnits, cost: allCost, resale: allResale }));
 
   return rows;
 }
