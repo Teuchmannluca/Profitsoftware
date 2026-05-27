@@ -37,24 +37,26 @@ export async function POST(request: Request) {
   }
 
   const cwd = process.cwd();
-  console.log("[deploy] Webhook received, deploying...");
+  console.log("[deploy] Webhook received, deploying in background...");
 
-  try {
-    const pull = await run("git pull origin main", cwd);
-    console.log("[deploy] git pull:", pull);
+  // Run deploy in background so GitHub gets an immediate 200
+  (async () => {
+    try {
+      const pull = await run("git pull origin main", cwd);
+      console.log("[deploy] git pull:", pull);
 
-    const install = await run("npm install --production=false", cwd);
-    console.log("[deploy] npm install done");
+      const install = await run("npm install --production=false", cwd);
+      console.log("[deploy] npm install done");
 
-    const build = await run("npm run build", cwd);
-    console.log("[deploy] build done");
+      const build = await run("npm run build", cwd);
+      console.log("[deploy] build done");
 
-    const restart = await run("pm2 restart profitsoftware", cwd);
-    console.log("[deploy] pm2 restart done");
+      const restart = await run("pm2 restart profitsoftware", cwd);
+      console.log("[deploy] pm2 restart done");
+    } catch (err) {
+      console.error("[deploy] Failed:", err instanceof Error ? err.message : err);
+    }
+  })();
 
-    return NextResponse.json({ ok: true, pull: pull.trim() });
-  } catch (err) {
-    console.error("[deploy] Failed:", err instanceof Error ? err.message : err);
-    return NextResponse.json({ ok: false, error: "Deploy failed" }, { status: 500 });
-  }
+  return NextResponse.json({ ok: true, status: "deploying" });
 }
