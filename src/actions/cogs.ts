@@ -1,5 +1,6 @@
 import { createServiceClient } from "@/lib/supabase/service";
 import { requireAuth } from "@/lib/auth-guard";
+import { getLondonToday } from "@/lib/queries/sales";
 
 export async function addCogsPeriod(data: {
   asin: string;
@@ -82,7 +83,8 @@ export async function setProductCost(
 
   await requireAuth();
   const supabase = createServiceClient();
-  const today = new Date().toISOString().split("T")[0];
+  const { year, month, day } = getLondonToday();
+  const today = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 
   const { data: existing } = await supabase
     .from("cogs_periods")

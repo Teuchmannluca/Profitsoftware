@@ -1,4 +1,4 @@
-import { getSalesMetrics, type SalesMetrics } from "@/lib/queries/sales";
+import { getSalesMetrics, getLondonToday, londonMidnight, type SalesMetrics } from "@/lib/queries/sales";
 import { getTopSellers } from "@/actions/top-sellers";
 import type {
   BlockConfig,
@@ -8,12 +8,15 @@ import type {
   MetricFormat,
 } from "./types";
 
-/** Local-time YYYY-MM-DD — matches how the dashboard buckets days. */
 export function toLocalDateStr(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/London",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(d);
+  const get = (type: string) => parts.find((p) => p.type === type)!.value;
+  return `${get("year")}-${get("month")}-${get("day")}`;
 }
 
 /**
@@ -81,18 +84,15 @@ const METRIC_DEFS: Array<{
  * When `blocks` is provided, only includes metrics/sections that are enabled.
  */
 export async function buildDailyDigest(
-  reference: Date = new Date(),
+  _reference: Date = new Date(),
   blocks?: BlockConfig[]
 ): Promise<DailyDigest> {
-  const todayStart = new Date(
-    reference.getFullYear(),
-    reference.getMonth(),
-    reference.getDate()
-  );
+  const { year, month, day } = getLondonToday();
+  const todayMidnight = londonMidnight(year, month, day);
 
-  const yesterdayFrom = new Date(todayStart.getTime() - 86400000);
-  const yesterdayTo = new Date(todayStart.getTime() - 1);
-  const dayBeforeFrom = new Date(todayStart.getTime() - 2 * 86400000);
+  const yesterdayFrom = new Date(todayMidnight.getTime() - 86400000);
+  const yesterdayTo = new Date(todayMidnight.getTime() - 1);
+  const dayBeforeFrom = new Date(todayMidnight.getTime() - 2 * 86400000);
   const dayBeforeTo = new Date(yesterdayFrom.getTime() - 1);
 
   const [yesterday, dayBefore, topSellers] = await Promise.all([

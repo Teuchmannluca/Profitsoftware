@@ -153,6 +153,11 @@ export function OrderDetails({ orders }: { orders: OrderWithItems[] }) {
     (sum, o) => sum + o.items.reduce((is, i) => is + liveProfit(i), 0),
     0
   );
+  const grandCogs = filtered.reduce(
+    (sum, o) => sum + o.items.reduce((is, i) => is + (i.cogs_snapshot ?? 0) * i.qty, 0),
+    0
+  );
+  const grandRoi = grandCogs > 0 ? (grandProfit / grandCogs) * 100 : null;
 
   return (
     <Card className="overflow-hidden shadow-card ring-1 ring-border/50">
@@ -245,6 +250,17 @@ export function OrderDetails({ orders }: { orders: OrderWithItems[] }) {
                 {formatMoney(grandProfit)}
               </span>
             </div>
+            <div className="flex items-center gap-1.5">
+              <TrendingUp className="h-3.5 w-3.5 text-amber-500" />
+              <span className="text-xs text-muted-foreground">ROI:</span>
+              <span
+                className={`text-xs font-bold font-mono ${
+                  grandRoi !== null && grandRoi >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
+                }`}
+              >
+                {grandRoi !== null ? `${grandRoi.toFixed(1)}%` : "—"}
+              </span>
+            </div>
           </div>
         )}
       </CardHeader>
@@ -274,6 +290,11 @@ export function OrderDetails({ orders }: { orders: OrderWithItems[] }) {
                 (sum, i) => sum + liveProfit(i),
                 0
               );
+              const orderCogs = order.items.reduce(
+                (sum, i) => sum + (i.cogs_snapshot ?? 0) * i.qty,
+                0
+              );
+              const orderRoi = orderCogs > 0 ? (orderProfit / orderCogs) * 100 : null;
               const orderQty = order.items.reduce((sum, i) => sum + i.qty, 0);
 
               const isPending = order.order_status === "Pending";
@@ -384,6 +405,21 @@ export function OrderDetails({ orders }: { orders: OrderWithItems[] }) {
                         {orderProfit === 0 && isPending ? "Awaiting" : formatMoney(orderProfit)}
                       </span>
                       <span className="text-[10px] text-muted-foreground">profit</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <TrendingUp className="h-3 w-3 text-amber-500" />
+                      <span
+                        className={`text-[11px] font-mono font-semibold ${
+                          isPending && orderRoi === null
+                            ? "text-muted-foreground"
+                            : orderRoi !== null && orderRoi >= 0
+                              ? "text-emerald-600 dark:text-emerald-400"
+                              : "text-rose-600 dark:text-rose-400"
+                        }`}
+                      >
+                        {orderRoi !== null ? `${orderRoi.toFixed(1)}%` : "—"}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">ROI</span>
                     </div>
                     <div className="flex items-center gap-1">
                       <Package className="h-3 w-3 text-violet-500" />

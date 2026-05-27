@@ -3,6 +3,7 @@ import {
   getInventorySummaries,
   getCatalogItemImage,
 } from "@/lib/sp-api/inventory";
+import { getLondonToday } from "@/lib/queries/sales";
 import type { InventorySummary } from "@/lib/sp-api/types";
 
 export function mapSummaryToProduct(summary: InventorySummary) {
@@ -72,7 +73,8 @@ export async function syncInventory(): Promise<{
       console.log("[inventory-sync] Sample:", JSON.stringify(summaries[0], null, 2));
     }
 
-    const today = new Date().toISOString().split("T")[0];
+    const { year, month, day } = getLondonToday();
+    const today = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 
     const productRows = summaries.map((s) => mapSummaryToProduct(s));
     const snapshotRows = summaries.map((s) => mapSummaryToSnapshot(s, today));

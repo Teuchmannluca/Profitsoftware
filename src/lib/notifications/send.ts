@@ -69,18 +69,35 @@ export async function deliverProfileDigest(
   };
 }
 
+function getLondonTimeParts(now: Date) {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/London",
+    hour: "2-digit",
+    minute: "2-digit",
+    weekday: "short",
+    hour12: false,
+  }).formatToParts(now);
+  const get = (type: string) => parts.find((p) => p.type === type)!.value;
+  const dayMap: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  return {
+    hour: parseInt(get("hour")),
+    minute: parseInt(get("minute")),
+    dayOfWeek: dayMap[get("weekday")] ?? 0,
+  };
+}
+
 function shouldRunProfile(profile: NotificationProfile, now: Date, todayStr: string): boolean {
   if (!profile.enabled) return false;
   if (!profile.email_enabled && !profile.slack_enabled) return false;
   if (profile.last_sent_date === todayStr) return false;
 
-  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  const london = getLondonTimeParts(now);
+  const nowMinutes = london.hour * 60 + london.minute;
   const sendMinutes = profile.send_hour * 60 + profile.send_minute;
   if (nowMinutes < sendMinutes) return false;
 
-  const dayOfWeek = now.getDay();
-  if (profile.frequency === "weekdays" && (dayOfWeek === 0 || dayOfWeek === 6)) return false;
-  if (profile.frequency === "weekly" && profile.weekly_day !== dayOfWeek) return false;
+  if (profile.frequency === "weekdays" && (london.dayOfWeek === 0 || london.dayOfWeek === 6)) return false;
+  if (profile.frequency === "weekly" && profile.weekly_day !== london.dayOfWeek) return false;
 
   return true;
 }

@@ -17,67 +17,100 @@ export interface SalesMetrics {
   roi: number;
 }
 
+const LONDON_TZ = "Europe/London";
+
+export function getLondonToday(): { year: number; month: number; day: number } {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: LONDON_TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const get = (type: string) =>
+    parseInt(parts.find((p) => p.type === type)!.value);
+  return { year: get("year"), month: get("month") - 1, day: get("day") };
+}
+
+export function londonMidnight(year: number, month: number, day: number): Date {
+  const utcMidnight = new Date(Date.UTC(year, month, day));
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: LONDON_TZ,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(utcMidnight);
+  const h = parseInt(parts.find((p) => p.type === "hour")!.value);
+  const m = parseInt(parts.find((p) => p.type === "minute")!.value);
+  return new Date(utcMidnight.getTime() - (h * 3600000 + m * 60000));
+}
+
+function shiftDay(y: number, m: number, d: number, days: number) {
+  const date = new Date(Date.UTC(y, m, d + days));
+  return {
+    year: date.getUTCFullYear(),
+    month: date.getUTCMonth(),
+    day: date.getUTCDate(),
+  };
+}
+
+function dayStart(y: number, m: number, d: number) {
+  return londonMidnight(y, m, d);
+}
+
+function dayEnd(y: number, m: number, d: number) {
+  const next = shiftDay(y, m, d, 1);
+  return new Date(londonMidnight(next.year, next.month, next.day).getTime() - 1);
+}
+
 export function getDateRange(period: string): { from: Date; to: Date } {
-  const now = new Date();
-  const startOfDay = (d: Date) =>
-    new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const { year, month, day } = getLondonToday();
 
   switch (period) {
-    case "today": {
-      const from = startOfDay(now);
-      const to = new Date(from.getTime() + 86400000 - 1);
-      return { from, to };
-    }
+    case "today":
+      return { from: dayStart(year, month, day), to: dayEnd(year, month, day) };
     case "yesterday": {
-      const yesterday = new Date(now.getTime() - 86400000);
-      const from = startOfDay(yesterday);
-      const to = new Date(from.getTime() + 86400000 - 1);
-      return { from, to };
+      const yd = shiftDay(year, month, day, -1);
+      return { from: dayStart(yd.year, yd.month, yd.day), to: dayEnd(yd.year, yd.month, yd.day) };
     }
     case "7days": {
-      const from = startOfDay(new Date(now.getTime() - 7 * 86400000));
-      const to = new Date(startOfDay(now).getTime() + 86400000 - 1);
-      return { from, to };
+      const s = shiftDay(year, month, day, -7);
+      return { from: dayStart(s.year, s.month, s.day), to: dayEnd(year, month, day) };
     }
-    case "this_month": {
-      const from = new Date(now.getFullYear(), now.getMonth(), 1);
-      const to = new Date(startOfDay(now).getTime() + 86400000 - 1);
-      return { from, to };
-    }
+    case "this_month":
+      return { from: dayStart(year, month, 1), to: dayEnd(year, month, day) };
     case "last_month": {
-      const from = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-      const to = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
-      return { from, to };
+      const lastDay = new Date(Date.UTC(year, month, 0));
+      return {
+        from: dayStart(year, month - 1, 1),
+        to: dayEnd(lastDay.getUTCFullYear(), lastDay.getUTCMonth(), lastDay.getUTCDate()),
+      };
     }
-    case "this_year": {
-      const from = new Date(now.getFullYear(), 0, 1);
-      const to = new Date(startOfDay(now).getTime() + 86400000 - 1);
-      return { from, to };
-    }
+    case "this_year":
+      return { from: dayStart(year, 0, 1), to: dayEnd(year, month, day) };
     case "90days": {
-      const from = startOfDay(new Date(now.getTime() - 90 * 86400000));
-      const to = new Date(startOfDay(now).getTime() + 86400000 - 1);
-      return { from, to };
+      const s = shiftDay(year, month, day, -90);
+      return { from: dayStart(s.year, s.month, s.day), to: dayEnd(year, month, day) };
     }
     case "365days": {
-      const from = startOfDay(new Date(now.getTime() - 365 * 86400000));
-      const to = new Date(startOfDay(now).getTime() + 86400000 - 1);
-      return { from, to };
+      const s = shiftDay(year, month, day, -365);
+      return { from: dayStart(s.year, s.month, s.day), to: dayEnd(year, month, day) };
     }
     default: {
       if (period.startsWith("custom_")) {
-        const parts = period.slice(7).split("_");
-        if (parts.length === 2) {
-          const from = new Date(parts[0] + "T00:00:00");
-          const to = new Date(parts[1] + "T23:59:59.999");
-          if (!isNaN(from.getTime()) && !isNaN(to.getTime())) {
-            return { from, to };
+        const seg = period.slice(7).split("_");
+        if (seg.length === 2) {
+          const fp = seg[0].split("-").map(Number);
+          const tp = seg[1].split("-").map(Number);
+          if (fp.length === 3 && tp.length === 3) {
+            const from = dayStart(fp[0], fp[1] - 1, fp[2]);
+            const to = dayEnd(tp[0], tp[1] - 1, tp[2]);
+            if (!isNaN(from.getTime()) && !isNaN(to.getTime())) {
+              return { from, to };
+            }
           }
         }
       }
-      const from = startOfDay(now);
-      const to = new Date(from.getTime() + 86400000 - 1);
-      return { from, to };
+      return { from: dayStart(year, month, day), to: dayEnd(year, month, day) };
     }
   }
 }
