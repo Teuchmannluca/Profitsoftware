@@ -11,6 +11,7 @@ import { PeriodFilter } from "@/components/period-filter";
 import { getDateRange, getSalesMetrics } from "@/lib/queries/sales";
 import { Card, CardContent } from "@/components/ui/card";
 import { TopSellersCard } from "@/components/top-sellers-card";
+import { PendingOrdersCard, type PendingOrderRow } from "@/components/pending-orders-card";
 import { MainContent } from "@/components/main-content";
 import Image from "next/image";
 
@@ -208,6 +209,49 @@ export default async function DashboardPage({
     }
   }
 
+  // Pending / unshipped orders
+  const { data: pendingOrders } = await supabase
+    .from("orders")
+    .select("amazon_order_id, purchase_date, order_status")
+    .in("order_status", ["Pending", "Unshipped", "PartiallyShipped"])
+    .order("purchase_date", { ascending: false })
+    .limit(20);
+
+  const pendingIds = pendingOrders?.map((o) => o.amazon_order_id) ?? [];
+  const { data: pendingItems } = pendingIds.length > 0
+    ? await supabase
+        .from("order_items")
+        .select("amazon_order_id, sku, qty, item_price_gross")
+        .in("amazon_order_id", pendingIds)
+    : { data: [] };
+
+  const pendingSkus = [...new Set((pendingItems ?? []).map((i) => i.sku).filter(Boolean))];
+  const { data: pendingProducts } = pendingSkus.length > 0
+    ? await supabase.from("products").select("sku, title, image_url").in("sku", pendingSkus)
+    : { data: [] };
+  const pendingProductMap = new Map(pendingProducts?.map((p) => [p.sku, p]) ?? []);
+
+  const pendingOrderRows: PendingOrderRow[] = (pendingOrders ?? []).map((o) => {
+    const items = (pendingItems ?? [])
+      .filter((i) => i.amazon_order_id === o.amazon_order_id)
+      .map((i) => {
+        const prod = pendingProductMap.get(i.sku);
+        return {
+          sku: i.sku,
+          title: prod?.title ?? null,
+          image_url: prod?.image_url ?? null,
+          qty: i.qty ?? 1,
+          price: parseFloat(String(i.item_price_gross ?? "0")),
+        };
+      });
+    return {
+      amazon_order_id: o.amazon_order_id,
+      purchase_date: o.purchase_date,
+      order_status: o.order_status,
+      items: items.length > 0 ? items : [{ sku: "—", title: null, image_url: null, qty: 1, price: 0 }],
+    };
+  });
+
   // Previous period for comparison
   const periodMs = to.getTime() - from.getTime();
   const prevFrom = new Date(from.getTime() - periodMs - 1);
@@ -360,55 +404,55 @@ export default async function DashboardPage({
 
             return (
               <Card className="overflow-hidden shadow-card ring-1 ring-border/50">
-                <CardContent className="p-6">
-                  <div className="flex items-start gap-5">
+                <CardContent className="p-4 md:p-6">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950 px-2 py-0.5 rounded-full ring-1 ring-emerald-600/10 dark:ring-emerald-400/10">
+                      Latest Sale · {dateStr} {timeStr}
+                    </span>
+                    <a href="/orders" className="text-[11px] text-primary font-medium hover:underline">All orders →</a>
+                  </div>
+                  <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-5">
                     {latestSaleData.imageUrl ? (
                       <Image
                         src={latestSaleData.imageUrl}
                         alt={latestSaleData.title ?? latestSaleData.sku}
                         width={140}
                         height={140}
-                        className="rounded-2xl object-cover ring-1 ring-border/50 shrink-0 w-auto h-auto"
+                        className="rounded-2xl object-cover ring-1 ring-border/50 shrink-0 w-[100px] h-[100px] sm:w-auto sm:h-auto"
                       />
                     ) : (
-                      <div className="h-[140px] w-[140px] rounded-2xl bg-muted shrink-0" />
+                      <div className="h-[100px] w-[100px] sm:h-[140px] sm:w-[140px] rounded-2xl bg-muted shrink-0" />
                     )}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950 px-2 py-0.5 rounded-full ring-1 ring-emerald-600/10 dark:ring-emerald-400/10">
-                          Latest Sale · {dateStr} {timeStr}
-                        </span>
-                        <a href="/orders" className="text-[11px] text-primary font-medium hover:underline">All orders →</a>
-                      </div>
-                      <p className="text-[13px] font-bold truncate mt-2">{latestSaleData.title ?? "Unknown Product"}</p>
-                      <p className="text-[10px] text-muted-foreground font-mono mt-0.5">
+                    <div className="flex-1 min-w-0 w-full">
+                      <p className="text-[13px] font-bold truncate text-center sm:text-left">{latestSaleData.title ?? "Unknown Product"}</p>
+                      <p className="text-[10px] text-muted-foreground font-mono mt-0.5 text-center sm:text-left">
                         <a href={`https://www.amazon.co.uk/dp/${latestSaleData.asin}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{latestSaleData.asin}</a>
                         {" · "}{latestSaleData.sku}
                       </p>
-                      <div className="flex items-center gap-4 mt-3">
+                      <div className="grid grid-cols-3 sm:flex sm:items-center gap-3 sm:gap-4 mt-3">
                         <div className="text-center">
                           <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Qty</p>
-                          <p className="text-lg font-bold font-mono">{latestSaleData.qty}</p>
+                          <p className="text-base sm:text-lg font-bold font-mono">{latestSaleData.qty}</p>
                         </div>
-                        <div className="h-8 w-px bg-border/60" />
+                        <div className="hidden sm:block h-8 w-px bg-border/60" />
                         <div className="text-center">
                           <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Price</p>
-                          <p className="text-lg font-bold font-mono">£{latestSaleData.salePrice.toFixed(2)}</p>
+                          <p className="text-base sm:text-lg font-bold font-mono">£{latestSaleData.salePrice.toFixed(2)}</p>
                         </div>
-                        <div className="h-8 w-px bg-border/60" />
+                        <div className="hidden sm:block h-8 w-px bg-border/60" />
                         <div className="text-center">
                           <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Profit</p>
-                          <p className={`text-lg font-bold font-mono ${latestSaleData.profit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>£{latestSaleData.profit.toFixed(2)}</p>
+                          <p className={`text-base sm:text-lg font-bold font-mono ${latestSaleData.profit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>£{latestSaleData.profit.toFixed(2)}</p>
                         </div>
-                        <div className="h-8 w-px bg-border/60" />
+                        <div className="hidden sm:block h-8 w-px bg-border/60" />
                         <div className="text-center">
                           <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Margin</p>
-                          <p className={`text-lg font-bold font-mono ${latestSaleData.margin >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>{latestSaleData.margin.toFixed(1)}%</p>
+                          <p className={`text-base sm:text-lg font-bold font-mono ${latestSaleData.margin >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>{latestSaleData.margin.toFixed(1)}%</p>
                         </div>
-                        <div className="h-8 w-px bg-border/60" />
+                        <div className="hidden sm:block h-8 w-px bg-border/60" />
                         <div className="text-center">
                           <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">In Stock</p>
-                          <p className={`text-lg font-bold font-mono ${latestSaleData.stockLeft <= 0 ? "text-rose-600 dark:text-rose-400" : latestSaleData.stockLeft < 10 ? "text-amber-600 dark:text-amber-400" : "text-foreground"}`}>{latestSaleData.stockLeft}</p>
+                          <p className={`text-base sm:text-lg font-bold font-mono ${latestSaleData.stockLeft <= 0 ? "text-rose-600 dark:text-rose-400" : latestSaleData.stockLeft < 10 ? "text-amber-600 dark:text-amber-400" : "text-foreground"}`}>{latestSaleData.stockLeft}</p>
                           {latestSaleData.stockInbound > 0 && (
                             <p className="text-[9px] text-sky-600 dark:text-sky-400 font-mono">+{latestSaleData.stockInbound} inbound</p>
                           )}
@@ -421,13 +465,19 @@ export default async function DashboardPage({
             );
           })()}
 
-          {/* Top Sellers + Sync Log */}
+          {/* Pending Orders + Top Sellers + Sync Log */}
           <div className="grid gap-6 lg:grid-cols-3">
             <div className="lg:col-span-2">
-              <TopSellersCard initialData={topSellers} />
+              <PendingOrdersCard orders={pendingOrderRows} />
             </div>
             <div>
               <SyncLogCard logs={syncLogs ?? []} />
+            </div>
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-3">
+            <div className="lg:col-span-2">
+              <TopSellersCard initialData={topSellers} />
             </div>
           </div>
         </div>
